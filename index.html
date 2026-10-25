@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storyteller Tactics® - 81-Card SRS & Deep Recall Edition</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .perspective { perspective: 1200px; }
+  .preserve-3d { transform-style: preserve-3d; }
+  .backface-hidden { backface-visibility: hidden; }
+  .rotate-y-180 { transform: rotateY(180deg); }
+  .card-transition { transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+  .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-amber-200">
+
+  <!-- Header & Toolbar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-2.5 flex flex-col gap-2.5">
+      <div class="flex flex-col md:flex-row gap-3 justify-between items-center">
+        <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-amber-600 text-white font-extrabold flex items-center justify-center text-lg shadow">P</div>
+            <div>
+              <h1 class="text-base md:text-lg font-bold text-slate-900 leading-tight">Storyteller Tactics® SRS & Recall Studio</h1>
+              <p class="text-[11px] text-slate-500 font-medium">81-Card Library • Spaced Repetition (SM-2) • In-Depth Active Recall</p>
+            </div>
+          </div>
+          <!-- Blind Mode Toggle (Mobile/Desktop) -->
+          <button id="blind-mode-btn" onclick="toggleBlindMode()" title="Hide card title & concept on front to test diagnostic recall"
+            class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1.5">
+            <span id="blind-mode-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span>Blind Prompt Mode</span>
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <div class="relative flex-1 md:w-44">
+            <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search 81 cards..." 
+              class="w-full pl-7 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
+            <svg class="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+
+          <select id="srs-filter" onchange="handleFilterChange()" 
+            class="text-xs font-bold bg-amber-50 border border-amber-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-900 cursor-pointer">
+            <option value="ALL">📚 All Cards (81)</option>
+            <option value="DUE">🔥 Due for Review (SRS)</option>
+            <option value="LEARNING">⚠️ Struggling / Learning</option>
+            <option value="NEW">🆕 Unseen / New</option>
+            <option value="MASTERED">🏆 Mastered (Interval ≥ 7d)</option>
+          </select>
+
+          <select id="category-filter" onchange="handleFilterChange()" 
+            class="text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-700 cursor-pointer">
+            <option value="ALL">All Categories</option>
+            <option value="Master Recipes">Master Recipes & System (9)</option>
+            <option value="Structure">Structure (13)</option>
+            <option value="Concept">Concept (7)</option>
+            <option value="Explore">Explore (11)</option>
+            <option value="Character">Character (10)</option>
+            <option value="Function">Function (9)</option>
+            <option value="Style">Style (13)</option>
+            <option value="Organise">Organise (6)</option>
+            <option value="Workshops">Workshops (3)</option>
+          </select>
+
+          <select id="card-select" onchange="handleSelectCard()" 
+            class="text-xs font-medium bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-700 max-w-[155px] truncate cursor-pointer">
+          </select>
+        </div>
+      </div>
+
+      <!-- Spaced Repetition Telemetry Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px]">
+        <div class="flex flex-wrap items-center gap-3">
+          <button onclick="setQuickSRSFilter('DUE')" class="flex items-center gap-1.5 font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full hover:bg-rose-100 transition">
+            <span class="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
+            <span>Due Now: <strong id="stat-due">0</strong></span>
+          </button>
+          <button onclick="setQuickSRSFilter('LEARNING')" class="text-amber-800 font-semibold hover:underline">
+            Learning: <strong id="stat-learning">0</strong>
+          </button>
+          <button onclick="setQuickSRSFilter('NEW')" class="text-slate-600 font-semibold hover:underline">
+            New: <strong id="stat-new">81</strong>
+          </button>
+          <button onclick="setQuickSRSFilter('MASTERED')" class="text-emerald-700 font-semibold hover:underline">
+            Mastered: <strong id="stat-mastered">0</strong>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500 font-semibold">Deck Mastery:</span>
+            <div class="w-28 h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div id="mastery-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <span id="stat-pct" class="font-bold text-slate-700">0%</span>
+          </div>
+          <button onclick="resetSRSProgress()" class="text-[10px] text-slate-400 hover:text-red-600 font-semibold transition" title="Clear saved SRS progress">
+            Reset SRS
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Flashcard Workspace -->
+  <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-5 flex flex-col items-center justify-center">
+
+    <!-- Top Card Meta Row -->
+    <div class="w-full flex flex-wrap justify-between items-center mb-2 px-1 gap-2 text-xs text-slate-500 font-semibold">
+      <div class="flex items-center gap-2">
+        <span id="deck-counter" class="uppercase tracking-wide">Card 1 of 81</span>
+        <span id="card-srs-badge" class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">New</span>
+        <span id="card-srs-meta" class="text-[11px] text-slate-400 font-normal hidden sm:inline"></span>
+      </div>
+      <span class="hidden md:inline-block text-slate-400 text-[11px]">Shortcuts: [Space] Flip | [&larr;/&rarr;] Nav | [Q] Deep Questions | [1-4] Rate Memory</span>
+    </div>
+
+    <!-- 3D Card Stage -->
+    <div class="perspective w-full h-[540px] select-none cursor-pointer" onclick="handleCardClick(event)">
+      <div id="flashcard-inner" class="relative w-full h-full preserve-3d card-transition">
+
+        <!-- CARD FRONT -->
+        <div id="card-front" class="absolute inset-0 backface-hidden bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-6 md:p-8 flex flex-col justify-between overflow-hidden">
+          <div>
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+              <span id="front-category" class="text-xs font-extrabold uppercase px-3 py-1 rounded-full tracking-wider text-white shadow-sm">Category</span>
+              <div class="flex items-center gap-2">
+                <span id="front-due-status" class="text-[11px] font-semibold text-slate-400"></span>
+                <span id="front-number" class="text-xs font-bold text-slate-400 font-mono tracking-tight">#01</span>
+              </div>
+            </div>
+
+            <!-- Standard Front Header (Hidden in Blind Prompt Mode) -->
+            <div id="front-identity-block" class="mt-4">
+              <h2 id="front-name" class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">Card Name</h2>
+              <p id="front-tagline" class="text-sm font-semibold text-amber-700 mt-1 uppercase tracking-wide">Tagline</p>
+              <div class="mt-4 bg-slate-50 border-l-4 border-slate-300 p-4 rounded-r-xl">
+                <p id="front-concept" class="text-sm text-slate-700 leading-relaxed font-normal">Core concept...</p>
+              </div>
+            </div>
+
+            <!-- Blind Mode Mask Banner (Shown only when Blind Prompt Mode is active) -->
+            <div id="front-blind-mask" class="hidden mt-4 bg-slate-900 text-white p-5 rounded-xl border border-slate-700 shadow-inner">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">🎯 Blind Active Recall Challenge</span>
+                <button onclick="revealBlindFront(event)" class="text-[11px] font-bold text-amber-300 hover:underline">Peek Title</button>
+              </div>
+              <p class="text-sm text-slate-200 font-medium leading-relaxed">
+                Read the <strong>Diagnostic Trigger</strong> &amp; <strong>In-Depth Prompt</strong> below. Before flipping, state aloud:
+              </p>
+              <ul class="text-xs text-slate-300 mt-2 space-y-1 list-disc list-inside">
+                <li>Which <strong>Storyteller Tactic card</strong> solves this problem?</li>
+                <li>What are the <strong>exact numbered execution steps</strong> and the <strong>Common Trap</strong>?</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="space-y-2.5 mt-3">
+            <!-- Diagnostic Trigger -->
+            <div class="bg-amber-50/90 border border-amber-200 rounded-xl p-3.5 shadow-sm">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
+                <span class="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider">Diagnostic Trigger (When to use):</span>
+              </div>
+              <p id="front-diagnostic" class="text-sm font-medium text-amber-950 italic">"When to reach for this card..."</p>
+            </div>
+
+            <!-- Front Quick Recall Teaser Question -->
+            <div class="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3.5 shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider">🧠 Pre-Flip Recall Question:</span>
+                <span class="text-[10px] font-semibold text-indigo-600">Flip to verify &amp; self-grade</span>
+              </div>
+              <p id="front-deep-question" class="text-xs font-medium text-indigo-950 leading-relaxed"></p>
+            </div>
+          </div>
+
+          <div class="text-center pt-1 text-xs font-semibold text-slate-400">
+            Click card or press <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px] text-slate-600">Space</kbd> to flip &amp; grade memory &rarr;
+          </div>
+        </div>
+
+        <!-- CARD BACK -->
+        <div id="card-back" class="absolute inset-0 backface-hidden rotate-y-180 bg-slate-50 border-2 border-slate-300 rounded-2xl shadow-xl p-4 md:p-5 flex flex-col justify-between overflow-hidden cursor-default" onclick="event.stopPropagation()">
+          <!-- Back Top Bar with Mode Tabs -->
+          <div class="flex flex-wrap justify-between items-center gap-2 pb-2 border-b border-slate-200">
+            <div class="flex items-center gap-2">
+              <span id="back-category-dot" class="w-3 h-3 rounded-full"></span>
+              <h3 id="back-name" class="text-base font-bold text-slate-900">Card Name</h3>
+              <span id="back-number" class="text-xs font-mono font-bold text-slate-400">#01</span>
+            </div>
+
+            <!-- Sub-navigation Tabs on Card Back -->
+            <div class="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-bold">
+              <button id="tab-btn-steps" onclick="switchBackTab('steps')" 
+                class="px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm transition">
+                📋 Execution &amp; Links
+              </button>
+              <button id="tab-btn-questions" onclick="switchBackTab('questions')" 
+                class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1">
+                <span>🧠 In-Depth Questions</span>
+                <span class="px-1.5 py-0.2 bg-indigo-600 text-white rounded-full text-[10px]">4</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB 1: EXECUTION STEPS & CHAINING -->
+          <div id="back-tab-steps" class="flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 space-y-2.5">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <p class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Steps to Do It Correctly:</p>
+                <button onclick="switchBackTab('questions')" class="text-[11px] font-bold text-indigo-600 hover:underline">
+                  Test Yourself on These Steps &rarr;
+                </button>
+              </div>
+              <div id="back-steps-content" class="text-xs text-slate-800 whitespace-pre-line leading-relaxed bg-white p-3 rounded-xl border border-slate-200 shadow-sm font-sans"></div>
+            </div>
+
+            <div class="bg-red-50 border-l-4 border-red-500 p-2.5 rounded-r-xl">
+              <p class="text-[10px] font-extrabold uppercase tracking-wider text-red-900 mb-0.5">Common Trap / Watch-Out:</p>
+              <p id="back-trap-content" class="text-xs text-red-950 leading-relaxed font-medium"></p>
+            </div>
+
+            <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                  <span class="text-blue-600 font-extrabold">&larr;</span> Run Before:
+                </p>
+                <div id="back-before-chips" class="flex flex-wrap gap-1"></div>
+              </div>
+              <div class="sm:border-l border-slate-100 sm:pl-2">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                  <span class="text-emerald-600 font-extrabold">&rarr;</span> Run After:
+                </p>
+                <div id="back-after-chips" class="flex flex-wrap gap-1"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: IN-DEPTH QUESTIONS & ACTIVE RECALL SUITE -->
+          <div id="back-tab-questions" class="hidden flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 space-y-2.5">
+            
+            <!-- Q1: Bespoke Case Study & Model Rubric -->
+            <div class="bg-white p-3 rounded-xl border border-indigo-200 shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-100 text-indigo-900">
+                  1. Applied Scenario Challenge
+                </span>
+                <span class="text-[10px] text-slate-400 font-semibold">Deep Comprehension</span>
+              </div>
+              <p id="q-scenario-prompt" class="text-xs font-semibold text-slate-800 leading-relaxed mt-1"></p>
+              <details class="mt-2 group">
+                <summary class="text-[11px] font-bold text-indigo-600 cursor-pointer hover:underline select-none flex items-center gap-1">
+                  <span>&#9654; Reveal Expert Model Answer &amp; Rubric</span>
+                </summary>
+                <div id="q-scenario-answer" class="mt-1.5 p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-lg text-xs text-slate-800 leading-relaxed"></div>
+              </details>
+            </div>
+
+            <!-- Q2: Interactive Step-by-Step Reconstruction Check -->
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                  2. Execution Sequence Recall Checklist
+                </span>
+                <span id="q-step-score" class="text-[10px] font-bold text-emerald-700">0/0 steps verified</span>
+              </div>
+              <p class="text-[11px] text-slate-600 mb-2">
+                Recite the execution steps from memory, then check off each step below that you accurately recalled:
+              </p>
+              <div id="q-steps-checklist" class="space-y-1.5"></div>
+            </div>
+
+            <!-- Q3: Pre-Mortem & Cognitive Trap Question -->
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-900">
+                  3. Failure Mode &amp; Trap Audit
+                </span>
+                <span class="text-[10px] text-slate-400 font-semibold">Error Prevention</span>
+              </div>
+              <p id="q-trap-prompt" class="text-xs font-semibold text-slate-800 leading-relaxed"></p>
+              <details class="mt-1.5">
+                <summary class="text-[11px] font-bold text-rose-700 cursor-pointer hover:underline select-none">
+                  &#9654; Reveal Target Trap &amp; Guardrail
+                </summary>
+                <div id="q-trap-answer" class="mt-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-950 font-medium"></div>
+              </details>
+            </div>
+
+            <!-- Q4: Chaining & Personal Workspace Application (Saved per card) -->
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-900">
+                  4. Personal Elaboration &amp; Tactic Chaining
+                </span>
+                <span id="note-save-indicator" class="text-[10px] text-slate-400 font-medium">Auto-saved locally</span>
+              </div>
+              <p id="q-chain-prompt" class="text-[11px] text-slate-700 mb-1.5 font-medium"></p>
+              <textarea id="card-user-note" rows="2" oninput="saveUserCardNote()"
+                placeholder="Write a 1-2 sentence example of how you will apply this tactic to a real project, presentation, or incident..."
+                class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+            </div>
+
+          </div>
+
+          <!-- Spaced Repetition Grading Bar (Always accessible on Card Back) -->
+          <div class="pt-2 border-t border-slate-200">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                Rate Your Recall (Spaced Repetition):
+              </span>
+              <button onclick="flipCard()" class="text-[11px] text-amber-700 font-bold hover:underline">
+                &larr; Flip to Front
+              </button>
+            </div>
+            <div class="grid grid-cols-4 gap-1.5">
+              <button onclick="rateCard(1)" class="py-1.5 px-2 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-800 hover:text-white border border-rose-300 transition flex flex-col items-center">
+                <span class="text-xs font-extrabold">[1] Again</span>
+                <span id="int-btn-1" class="text-[10px] opacity-80">&lt; 10m</span>
+              </button>
+              <button onclick="rateCard(2)" class="py-1.5 px-2 rounded-lg bg-amber-50 hover:bg-amber-600 text-amber-900 hover:text-white border border-amber-300 transition flex flex-col items-center">
+                <span class="text-xs font-extrabold">[2] Hard</span>
+                <span id="int-btn-2" class="text-[10px] opacity-80">1d</span>
+              </button>
+              <button onclick="rateCard(3)" class="py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white border border-emerald-300 transition flex flex-col items-center">
+                <span class="text-xs font-extrabold">[3] Good</span>
+                <span id="int-btn-3" class="text-[10px] opacity-80">3d</span>
+              </button>
+              <button onclick="rateCard(4)" class="py-1.5 px-2 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-800 hover:text-white border border-blue-300 transition flex flex-col items-center">
+                <span class="text-xs font-extrabold">[4] Easy</span>
+                <span id="int-btn-4" class="text-[10px] opacity-80">7d</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom Navigation Controls -->
+    <div class="w-full flex items-center justify-between gap-2.5 mt-3">
+      <button onclick="prevCard()" class="flex-1 sm:flex-none sm:px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-700 rounded-xl shadow-sm transition text-xs md:text-sm">
+        &larr; Prev
+      </button>
+
+      <button onclick="flipCard()" class="flex-1 sm:flex-none sm:px-7 py-2.5 bg-amber-600 hover:bg-amber-700 font-bold text-white rounded-xl shadow-md transition text-xs md:text-sm">
+        Flip Card
+      </button>
+
+      <button onclick="openQuestionsDirectly()" class="flex-1 sm:flex-none sm:px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 font-bold text-white rounded-xl shadow-md transition text-xs md:text-sm">
+        🧠 Deep Questions
+      </button>
+
+      <button onclick="shuffleDeck()" class="hidden md:flex px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-600 rounded-xl shadow-sm transition text-xs">
+        Shuffle
+      </button>
+
+      <button onclick="nextCard()" class="flex-1 sm:flex-none sm:px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-700 rounded-xl shadow-sm transition text-xs md:text-sm">
+        Next &rarr;
+      </button>
+    </div>
+
+  </main>
+
+<script>
+// ================= VERIFIED FULL 81-CARD REPOSITORY WITH IN-DEPTH QUESTIONS =================
+const rawDeck = [
+  // --- MASTER RECIPES & SYSTEM (9) ---
+  {
+    num: "#00", name: "The Story Building System", tagline: "Master Assembly & Diagnostic Engine", cat: "Master Recipes", col: "#b45309",
+    diag: "Stuck staring at a blank page, or my presentation is failing and I need to diagnose why.",
+    conc: "The central operating engine of the entire deck. Functions in two modes: Mode A (4-phase assembly from scratch) and Mode B (diagnostic triage for existing decks).",
+    steps: "MODE A: 4-PHASE ASSEMBLY (FROM SCRATCH):\n1. Scope: Audience Profile (#63) ➔ What's It About? (#13) ➔ Why It Matters (#15).\n2. Mine: Movie Time (#21) / Data Detective (#20) ➔ Hero & Guide (#31) ➔ Good & Evil (#33).\n3. Plot: Choose Story Spine (#01) / Five Ts (#02) / Man in a Hole (#03) ➔ Story Board (#64) shuffle test.\n4. Polish: Rolls Royce Moment (#50) / Show and Tell (#51) ➔ Cut the Crap (#52) ➔ Pitch Perfect (#42).\n\nMODE B: DIAGNOSTIC TRIAGE (FIXING DRAFTS):\n• Lost in details: What's It About? ➔ Story Spine ➔ Order & Priority.\n• Too abstract: That Reminds Me ➔ Abstraction Ladder ➔ Show and Tell.\n• Lacks urgency: Why It Matters ➔ Drive, Drag, Dread ➔ New Nightmare.\n• Need sign-off: Audience Profile ➔ Hero & Guide ➔ Pitch Perfect.",
+    trap: "The Random Draw Trap: Drawing cards at random without deciding whether you are assembling from scratch (Mode A) or diagnosing an existing flaw (Mode B).",
+    rb: ["Story Listening", "Audience Profile"], ra: ["Stories that Sell", "Stories that Convince", "Stories that Explain", "Stories that Motivate"],
+    deepQ: "A colleague hands you a 40-slide deck that executives called 'too abstract and lacking urgency.' Using Mode B of The Story Building System, which exact 3-card diagnostic chains should you prescribe?",
+    deepA: "Run two diagnostic chains: (1) To fix 'too abstract': That Reminds Me (#54) ➔ Abstraction Ladder (#53) ➔ Show and Tell (#51). (2) To fix 'lacks urgency': Why It Matters (#15) ➔ Drive, Drag, Dread (#32) ➔ New Nightmare (#44)."
+  },
+  {
+    num: "#00b", name: "The Storyteller's Oath", tagline: "Pre-Flight Integrity Audit", cat: "Master Recipes", col: "#b45309",
+    diag: "Worry that my presentation sounds manipulative, overly theatrical, or lacks credibility.",
+    conc: "The ethical baseline and pre-flight filter for professional communication. Persuasion without truth is manipulation; truth without structure is noise.",
+    steps: "1. Truth: Verify all operational metrics and failure timelines are factually accurate.\n2. Hero: Ensure the client, audience, or frontline team is the protagonist, not yourself or your company.\n3. Causality: Check that transitions follow 'Because of that' consequence rather than 'And then' chronology.\n4. Proof: Attach at least one inspectable artifact (Show and Tell) or precision metric (Rolls Royce Moment).\n5. Actionable Ask: End on a frictionless 48-hour micro-commitment rather than an open-ended request.",
+    trap: "The Self-Indulgence Trap: Using storytelling tricks to disguise bad data, broken systems, or missing evidence.",
+    rb: ["Pitch Perfect", "Down to Business"], ra: ["Stories that Sell", "Stories that Lead"],
+    deepQ: "Before walking into a high-stakes board pitch, what are the 5 pre-flight integrity checks of The Storyteller's Oath you must audit against your deck?",
+    deepA: "(1) Truth (verified metrics/timelines), (2) Hero (audience/frontline is protagonist, not you), (3) Causality ('Because of that' links), (4) Proof (inspectable Show & Tell artifact or Rolls Royce metric), and (5) Actionable Ask (48-hour micro-commitment)."
+  },
+  {
+    num: "#R1", name: "Stories that Sell", tagline: "The Persuasion Recipe", cat: "Master Recipes", col: "#b45309",
+    diag: "I need to persuade clients or internal stakeholders to fund a proposal without sounding pushy.",
+    conc: "Builds trust and demonstrates undeniable value by moving from buyer psychology to positioning, proof, and a low-friction ask.",
+    steps: "1. Audience Profile (#63): Map buyer gains, risks, and internal vocabulary.\n2. Hero & Guide (#31): Make buyer the hero; position your solution as the guiding tool.\n3. Simple Sales Stories (#41): Deliver Before-After-Bridge narrative arc.\n4. Rolls Royce Moment (#50): Provide one definitive, unassailable proof metric.\n5. Pitch Perfect (#42): 5-minute presentation ending on a low-friction ask.",
+    trap: "The Feature Dump Trap: Jumping straight to software demos before establishing the visceral Before state.",
+    rb: ["What's It About?"], ra: ["What Next?"],
+    deepQ: "Why does 'Stories that Sell' place Audience Profile (#63) and Hero & Guide (#31) BEFORE Simple Sales Stories (#41) and Rolls Royce Moment (#50)?",
+    deepA: "Because buyers reject pitches that lead with product features. You must first align with their internal risk/reward psychology (#63) and cast them as the protagonist (#31) so the Before-After-Bridge (#41) and proof metric (#50) feel relevant to their struggle."
+  },
+  {
+    num: "#R2", name: "Stories that Convince", tagline: "The Skepticism & Audit Recipe", cat: "Master Recipes", col: "#b45309",
+    diag: "Stakeholders are skeptical, questioning our data, or auditing our engineering methodology.",
+    conc: "Overcomes technical doubt by structuring evidence as an investigation and demonstrating rigorous problem-solving.",
+    steps: "1. Data Detective (#20): Frame the metric outlier as an investigative mystery.\n2. Five Ts (#02): Walk through Timeline, Trigger, Trouble, Truth, and Triumph.\n3. No Easy Way (#04): Show discarded hypotheses and trade-offs to prove thoroughness.\n4. Show and Tell (#51): Present the raw, inspectable proof artifact or test log.",
+    trap: "The Defensive Trap: Reacting defensively to tough questions rather than walking through your discarded hypotheses.",
+    rb: ["The Baseline"], ra: ["Down to Business"],
+    deepQ: "An audit committee doubts your root-cause analysis. How do steps 3 and 4 of 'Stories that Convince' disarm their skepticism without sounding defensive?",
+    deepA: "Step 3 (No Easy Way #04) proves rigor by walking through the hypotheses you tested and discarded, while Step 4 (Show and Tell #51) puts a raw, inspectable test log or artifact on the table so the evidence speaks for itself."
+  },
+  {
+    num: "#R3", name: "Stories that Explain", tagline: "The Complex Systems Recipe", cat: "Master Recipes", col: "#b45309",
+    diag: "I have to explain complex technical pipelines, algorithms, or compliance policies to non-specialists.",
+    conc: "Demystifies dense technical systems by bridging from familiar mechanical analogies down to floor-level execution.",
+    steps: "1. That Reminds Me (#54): Build an analogy bridge to a familiar mechanical system.\n2. Abstraction Ladder (#53): Walk down from strategic value to system workflows and floor execution.\n3. Show and Tell (#51): Display one real system artifact or sample record.\n4. Down to Business (#43): Close with operational responsibilities and rollout dates.",
+    trap: "The Jargon Overload Trap: Forgetting to step off the analogy bridge or getting bogged down in low-level code syntax.",
+    rb: ["Curiosity Gap"], ra: ["What Next?"],
+    deepQ: "You need to explain a complex data validation pipeline to non-technical operations managers. How do the 4 cards in 'Stories that Explain' sequence that explanation?",
+    deepA: "Start with a familiar analogy via That Reminds Me (#54), step down from strategy to concrete workflow via Abstraction Ladder (#53), show a real sample record via Show and Tell (#51), and close with rollout responsibilities via Down to Business (#43)."
+  },
+  {
+    num: "#R4", name: "Stories that Motivate", tagline: "The Sprint & Morale Recipe", cat: "Master Recipes", col: "#b45309",
+    diag: "My team is cynical, exhausted, and demoralized by a grueling migration or deadline.",
+    conc: "Energizes an exhausted team by addressing unexpressed fears, reframing the crunch period, and showing light at the end of the tunnel.",
+    steps: "1. Dragon & The City (#14): Validate current comfort, but explain the approaching external risk.\n2. Drive, Drag, Dread (#32): Address unspoken fears and remove unnecessary daily drag.\n3. Man in a Hole (#03): Frame crunch as the bottom of the curve leading to mastery.\n4. Happy Endings (#56): Paint a vivid picture of the operational relief waiting at completion.",
+    trap: "The Toxic Positivity Trap: Pretending the work is easy or fun. Acknowledge the pain, but show how it leads to higher ground.",
+    rb: ["Why It Matters"], ra: ["The Story Spine"],
+    deepQ: "Why does 'Stories that Motivate' fail if you skip Drive, Drag, Dread (#32) and Man in a Hole (#03) and jump straight to Happy Endings (#56)?",
+    deepA: "Jumping straight to cheerleading triggers the Toxic Positivity Trap. Exhausted teams only trust your vision of relief (#56) if you first validate their daily friction/fears (#32) and honestly acknowledge they are at the bottom of the crunch curve (#03)."
+  },
+  {
+    num: "#R5", name: "Stories that Lead", tagline: "The Transformation Recipe", cat: "Master Recipes", col: "#b45309",
+    diag: "We are guiding an entire department or company through high-stakes restructuring or migration.",
+    conc: "Guides an organization through major change by aligning stakes across tiers and demonstrating the cost of standing still.",
+    steps: "1. Audience Profile (#63): Segment concerns across each tier of the organization.\n2. The Quest (#08): Frame transformation as an epic journey with milestones.\n3. New Nightmare (#44): Outline the compounding cost of inaction.\n4. Pitch Perfect (#42): Deliver the executive roadmap with low-friction next steps.",
+    trap: "The Monolithic Pitch Trap: Giving the exact same presentation to frontline technicians and executive board members.",
+    rb: ["Dragon & The City"], ra: ["Down to Business"],
+    deepQ: "How does 'Stories that Lead' balance positive forward momentum with urgency when leading a multi-quarter restructuring?",
+    deepA: "It pairs The Quest (#08)—which provides shared milestones and a motivating horizon—with New Nightmare (#44)—which proves that standing still carries compounding risk—tailored to each organizational tier via Audience Profile (#63)."
+  },
+  {
+    num: "#R6", name: "Stories that Connect", tagline: "The Trust & Empathy Recipe", cat: "Master Recipes", col: "#b45309",
+    diag: "I am taking over a new team or need to dismantle cross-functional silos that block collaboration.",
+    conc: "Builds deep rapport and psychological safety by listening to unvarnished history and demonstrating authentic humility.",
+    steps: "1. Story Listening (#65): Open narrative prompts to uncover team history.\n2. Character Flaws (#34): Share an early personal miscalculation to disarm defensiveness.\n3. Hero & Guide (#31): Position colleagues as the protagonists in the operational journey.\n4. Social Proof (#26): Share how peer teams navigated similar friction.",
+    trap: "The Know-It-All Trap: Arriving with an immediate pre-packaged playbook before listening to the team's history.",
+    rb: ["Icebreaker"], ra: ["Story Bank"],
+    deepQ: "You have just been appointed lead over a burned-out, defensive team. Walk through the 4 steps of 'Stories that Connect' for your first two weeks.",
+    deepA: "First, run Story Listening (#65) to hear their unvarnished history before prescribing anything. Second, share one of your own Character Flaws (#34) to lower defenses. Third, cast them as the protagonist via Hero & Guide (#31). Fourth, reassure them using peer Social Proof (#26)."
+  },
+  {
+    num: "#R7", name: "Stories that Impress", tagline: "The Keynote & All-Hands Recipe", cat: "Master Recipes", col: "#b45309",
+    diag: "I have to deliver a memorable keynote, all-hands presentation, or public conference talk.",
+    conc: "Commands attention and shapes industry discussion by combining counter-intuitive insights, sensory scenes, and sharp bookends.",
+    steps: "1. Curiosity Gap (#22): Open with a counter-intuitive observation challenging industry consensus.\n2. Movie Time (#21): Drop the audience into a concrete, sensory opening scene.\n3. Rolls Royce Moment (#50): Deliver one definitive, high-precision proof metric.\n4. First Word, Last Word (#46): Conclude with a direct callback to the opening hook, ending on a clear decision.",
+    trap: "The Boring Agenda Trap: Spending the first two minutes introducing your company bio and agenda slide.",
+    rb: ["Thought Leadership"], ra: ["Pitch Perfect"],
+    deepQ: "How do the opening and closing steps of 'Stories that Impress' work together to maximize audience retention in a keynote?",
+    deepA: "You open with a Curiosity Gap (#22) and sensory Movie Time (#21) scene instead of a bio/agenda, anchor credibility with one Rolls Royce Moment (#50), and close with First Word, Last Word (#46) by echoing the exact opening hook."
+  },
+
+  // --- STRUCTURE (13) ---
+  {
+    num: "#01", name: "The Story Spine", tagline: "The Cause-and-Effect Engine", cat: "Structure", col: "#2563eb",
+    diag: "My project update feels like a boring, flat list of chronological events with zero momentum.",
+    conc: "Replaces episodic 'and then... and then...' historical timelines with strict 'because of that...' cause-and-effect progression.",
+    steps: "1. Once upon a time... (Baseline world & standard operations).\n2. Every day... (Routine daily habits & status quo).\n3. Until one day... (Inciting incident: failure, audit, or shock).\n4. Because of that... (Immediate reaction and initial attempt).\n5. Because of that... (Cascading consequence or deeper roadblock).\n6. Until finally... (The breakthrough / architectural pivot).\n7. And ever since then... (New standard operational standard).",
+    trap: "The Routine Trap: Over-explaining daily routines and rushing beats 4 & 5 where dramatic tension lives.",
+    rb: ["What's It About?", "Story Hooks"], ra: ["Five Ts", "Man in a Hole", "Show and Tell"],
+    deepQ: "What is the linguistic difference between a flat chronological status update and a Story Spine, and which specific beats hold the dramatic tension?",
+    deepA: "A flat update links events with 'And then...', whereas The Story Spine enforces causality using 'Because of that...' (Beats 4 and 5), where the cascading consequences and roadblocks create tension before the 'Until finally...' breakthrough."
+  },
+  {
+    num: "#02", name: "Five Ts", tagline: "Technical Case Study Framework", cat: "Structure", col: "#2563eb",
+    diag: "My case study spends 80% of the slides setting up the timeline and misses the technical breakthrough.",
+    conc: "A structured 5-stage framework designed specifically for technical, operational, and project case studies.",
+    steps: "1. Timeline: State project parameters, environment, and baseline in under 60 seconds.\n2. Trigger: The specific data signal, client escalation, or failure that forced action.\n3. Trouble: The unexpected bottleneck or system failure when work began.\n4. Truth: The counter-intuitive diagnostic insight that cracked the case.\n5. Triumph: The quantified outcome, permanent automated guardrail, and standard.",
+    trap: "The Flat Trouble Trap: Minimizing the Trouble beat, making the final triumph feel trivial and unearned.",
+    rb: ["The Story Spine", "Data Detective", "Five Ws"], ra: ["Show and Tell", "Show Your Working"],
+    deepQ: "In the Five Ts framework, what distinguishes 'Trigger' from 'Trouble', and 'Trouble' from 'Truth'?",
+    deepA: "'Trigger' is the initial alarm or escalation that initiated the project; 'Trouble' is the unexpected deeper bottleneck discovered once work began; 'Truth' is the counter-intuitive diagnostic insight that finally unlocked the fix."
+  },
+  {
+    num: "#03", name: "Man in a Hole", tagline: "Vulnerability & Recovery Arc", cat: "Structure", col: "#2563eb",
+    diag: "Our success story sounds too smooth and linear—nobody in the room believes it was that easy.",
+    conc: "Audiences distrust unbroken success stories. Credibility peaks when a protagonist hits bottom and claws out to higher ground.",
+    steps: "1. Level Ground: Stable operations before trouble struck.\n2. The Plunge: Sudden realization of crisis or broken assumptions.\n3. Bottom of the Hole: Peak tension where initial quick fixes failed.\n4. The Climb: Methodical diagnostics, grit, and structural redesign.\n5. Higher Ground: How the crisis left the organization more resilient than before.",
+    trap: "The Shallow Hole Trap: Skipping the vulnerability of the bottom of the hole. Admitting early confusion makes solutions credible.",
+    rb: ["The Story Spine", "Emotional Arc"], ra: ["Epic Fail", "No Easy Way", "Happy Endings"],
+    deepQ: "Why does 'Man in a Hole' end on 'Higher Ground' rather than simply returning to 'Level Ground'?",
+    deepA: "Returning merely to Level Ground means you only restored the fragile status quo. Ending on Higher Ground proves that the crisis forced structural redesign and new guardrails that left the team stronger than before."
+  },
+  {
+    num: "#04", name: "No Easy Way", tagline: "Value of the Discard Pile", cat: "Structure", col: "#2563eb",
+    diag: "Stakeholders assume our solution was trivial and question why it required this much budget.",
+    conc: "Solutions that look effortless are assumed cheap. Highlighting discarded attempts proves thoroughness and justifies investment.",
+    steps: "1. Attempt 1 (Obvious Route): What everyone expected to work, and why real-world constraints broke it.\n2. Attempt 2 (Workaround): The secondary patch, and the hidden side-effects or tech debt it created.\n3. Attempt 3 (Breakthrough): The fundamental architectural shift that permanently solved the root constraint.",
+    trap: "The Incompetence Trap: Making Attempt 1 look foolish. Frame early attempts as reasonable best practices that reached their limits.",
+    rb: ["Man in a Hole", "Epic Fail"], ra: ["Pitch Perfect", "Show Your Working"],
+    deepQ: "When presenting 'No Easy Way' to executives, how do you describe Attempt 1 and Attempt 2 without making your engineering team look incompetent?",
+    deepA: "Avoid the Incompetence Trap by framing Attempt 1 (the obvious best practice) and Attempt 2 (the tactical patch) as rational, industry-standard hypotheses that hit objective scaling or architectural limits, proving why Attempt 3 was necessary."
+  },
+  {
+    num: "#05", name: "Three Great Conflicts", tagline: "Naming the Real Enemy", cat: "Structure", col: "#2563eb",
+    diag: "The team is arguing internally instead of uniting against our project's shared obstacle.",
+    conc: "Dramatic momentum requires friction. Naming the external conflict unifies cross-functional teams against a shared adversary.",
+    steps: "1. Hero vs. Nature (Scale / Environment): Technical debt, system latency, compliance regulations, physical scaling limits.\n2. Hero vs. Others (External Resistance): Entrenched legacy vendors, regulatory auditors, aggressive competitors.\n3. Hero vs. Themselves (Internal Inertia): Organizational risk aversion, imposter syndrome, attachment to outdated manual habits.",
+    trap: "The Office Politics Trap: Turning colleagues into villains. The adversary must always be systemic, environmental, or cultural.",
+    rb: ["What's It About?"], ra: ["Dragon & The City", "Good & Evil", "Hero & Guide"],
+    deepQ: "Two internal teams are blaming each other for missed SLA targets. How do you use 'Three Great Conflicts' to redirect their hostility?",
+    deepA: "Never cast colleagues as the enemy (Office Politics Trap). Re-anchor the struggle onto Hero vs. Nature (system latency/legacy architecture), Hero vs. Others (external audit standards), or Hero vs. Themselves (shared attachment to manual habits)."
+  },
+  {
+    num: "#06", name: "Rags to Riches", tagline: "The Underdog Ascent", cat: "Structure", col: "#2563eb",
+    diag: "We built an internal capability with zero budget and need executive buy-in to scale it enterprise-wide.",
+    conc: "Audiences root for underdogs. Showing early resource constraints and compounding scrappy wins makes mastery feel earned.",
+    steps: "1. Humble Beginning: Zero budget, legacy tooling, no executive attention.\n2. First Break: A small, gritty win that validated the core thesis.\n3. Setback & Grit: The scaling wall where manual hacks broke, forcing disciplined engineering.\n4. New Standard: The underdog system becomes the organizational gold standard.",
+    trap: "The Polishing Trap: Hiding early embarrassments or budget limitations. The grit of early constraints builds emotional investment.",
+    rb: ["The Story Spine"], ra: ["Show and Tell", "Superpowers"],
+    deepQ: "Why is hiding your scrappy prototype's early budget limitations a mistake when pitching for enterprise scaling?",
+    deepA: "That falls into the Polishing Trap. Showing how the tool succeeded despite zero budget ('Humble Beginning' and 'First Break') proves high ROI and grit, making leadership eager to fund its transition past the scaling wall."
+  },
+  {
+    num: "#07", name: "Voyage & Return", tagline: "The Scouting Expedition", cat: "Structure", col: "#2563eb",
+    diag: "Leadership viewed our pilot project as an expensive distraction rather than a valuable scouting mission.",
+    conc: "Stepping outside business-as-usual into high-risk experimental territory and returning with wisdom that protects the core business.",
+    steps: "1. Departure: Why staying inside business-as-usual was no longer viable.\n2. Strange Land: Disorientation, broken assumptions, and unfamiliar mechanics during the pilot.\n3. The Deep Trial: The critical trial where the old playbook failed completely.\n4. Homecoming: Returning to the core organization bearing the implementation roadmap.",
+    trap: "The Souvenir Trap: Presenting recommendations without explaining the painful trial-and-error that proved them.",
+    rb: ["The Quest"], ra: ["Down to Business", "Story Listening"],
+    deepQ: "Your R&D pilot is returning to the core business with recommendations, but managers are dismissive. How do you avoid 'The Souvenir Trap'?",
+    deepA: "Don't just hand over the final recommendation ('the souvenir'). Walk them through 'Strange Land' and 'The Deep Trial'—showing exactly where the company's standard playbook broke during the pilot so they understand the tuition paid for that lesson."
+  },
+  {
+    num: "#08", name: "The Quest", tagline: "The Long-Horizon Mission", cat: "Structure", col: "#2563eb",
+    diag: "Our team is demoralized by a multi-quarter migration and feels lost in endless sprint backlogs.",
+    conc: "Reframes repetitive daily tickets as deliberate waypoints on an ambitious journey toward a shared summit.",
+    steps: "1. Vision at Horizon: What daily life looks like once the summit is reached.\n2. The Fellowship: Why diverse cross-functional skills are necessary to survive.\n3. Waypoints: Measurable intermediate basecamps celebrated along the way.\n4. Climax & Reward: The permanent operational capability unlocked.",
+    trap: "The Metric Destination Trap: Defining the summit as an abstract metric rather than an operational reality the team can feel.",
+    rb: ["Dragon & The City", "Why It Matters"], ra: ["Audience Profile", "New Nightmare", "Pitch Perfect"],
+    deepQ: "How do you prevent 'The Metric Destination Trap' when framing a 12-month technical migration as 'The Quest'?",
+    deepA: "Instead of defining the summit as an abstract KPI (e.g., '99.95% uptime'), define 'Vision at Horizon' in terms of tangible daily human relief for the Fellowship, broken into celebrated intermediate Waypoints."
+  },
+  {
+    num: "#09", name: "Overcoming the Monster", tagline: "Slashing the Entrenched Giant", cat: "Structure", col: "#2563eb",
+    diag: "The department feels paralyzed by a massive external threat (e.g., predatory vendor lock-in, compliance cliff).",
+    conc: "David vs. Goliath. Exploiting a giant adversary's structural blind spots with agile methods and precision tools.",
+    steps: "1. The Shadow: Overwhelming scale of the obstacle and the cost of surrender.\n2. Direct Attack Fails: Why traditional frontal methods failed.\n3. Fatal Flaw: Discovering the giant's blind spot (bureaucracy, rigidity, switching costs).\n4. Precision Strike: Targeted deployment of agile automation or modular tooling.",
+    trap: "The Fatalism Trap: Making the monster appear so invincible that stakeholders default to helplessness.",
+    rb: ["Three Great Conflicts"], ra: ["Show and Tell", "Pitch Perfect"],
+    deepQ: "How do you establish the severity of a massive threat in 'Overcoming the Monster' without triggering 'The Fatalism Trap'?",
+    deepA: "After showing 'The Shadow' and why 'Direct Attack Fails', immediately pivot to 'Fatal Flaw'—exposing a structural blind spot in the giant threat that your team can exploit with a targeted 'Precision Strike'."
+  },
+  {
+    num: "#10", name: "Comedy (The Tangle)", tagline: "Untangling Cross-Functional Chaos", cat: "Structure", col: "#2563eb",
+    diag: "Two departments are deadlocked because each optimizes for valid, but conflicting, objectives.",
+    conc: "Normalizes cross-functional friction without assigning personal blame. Well-meaning actors operating under mismatched assumptions untangle misunderstandings.",
+    steps: "1. Separate Worlds: Team A and Team B pursue legitimate, contrasting goals.\n2. Compounding Confusion: Team A's optimization inadvertently breaks Team B's intake.\n3. The Absurd Peak: The moment the operational contradiction reaches peak absurdity.\n4. Clarifying Reset: Bringing both teams together to discover the disconnect and agree on a unified metric.",
+    trap: "The Sarcasm Trap: Using ridicule or personal blame, which hardens defensive silos.",
+    rb: ["Six Men & An Elephant"], ra: ["Order & Priority", "Down to Business"],
+    deepQ: "Why is 'Comedy (The Tangle)' effective for resolving cross-functional deadlocks between QA and Engineering?",
+    deepA: "It validates both teams as well-meaning actors ('Separate Worlds') whose local optimizations accidentally collided ('Compounding Confusion'), allowing them to laugh at 'The Absurd Peak' and agree on a unified metric without personal blame."
+  },
+  {
+    num: "#11", name: "Tragedy (Cautionary Tale)", tagline: "Anatomy of Avoidable Ruin", cat: "Structure", col: "#2563eb",
+    diag: "Our organization is sliding into complacency and ignoring warning signs in our current roadmap.",
+    conc: "Analyzing an external peer's downfall to hold up a mirror without provoking immediate defensiveness.",
+    steps: "1. Promising Trajectory: Show the competitor or peer at their peak.\n2. Ignored Signal: The early anomaly or shift dismissed as irrelevant.\n3. Unraveling: The speed at which ignored friction turned into failure.\n4. The Mirror Question: 'Where in our current pipeline are we making this exact assumption?'",
+    trap: "The Mockery Trap: Ridiculing the failing peer rather than unpacking the rational decisions that led them astray.",
+    rb: ["Pride and Fall"], ra: ["New Nightmare", "Happy Endings"],
+    deepQ: "Why must you avoid 'The Mockery Trap' when telling a Cautionary Tale (#11) about a failed competitor?",
+    deepA: "If you portray the failed peer as foolish, your audience will think 'We're smarter than them, so it won't happen here.' Showing how the peer was smart and at a 'Promising Trajectory' makes 'The Mirror Question' hit home."
+  },
+  {
+    num: "#12", name: "Trust Me I'm an Expert", tagline: "Authority Through Humility", cat: "Structure", col: "#2563eb",
+    diag: "Non-technical decision-makers view my recommendations with suspicion or think I'm overcomplicating things.",
+    conc: "True expertise is demonstrated through humility and trade-off transparency—not by reciting dense jargon or pulling rank.",
+    steps: "1. Show the Scars: Reference where you learned these lessons the hard way.\n2. State Limits Honestly: State clearly what your proposed solution CANNOT do.\n3. Translate to Business Metrics: Express technical facts in risk exposure, dollar cost, or cycle time.",
+    trap: "The Arrogance Trap: Assuming credentials alone should convince stakeholders to agree without questions.",
+    rb: ["Thought Leadership"], ra: ["Cut the Crap", "Show Your Working"],
+    deepQ: "How does Step 2 of 'Trust Me I'm an Expert' paradoxically increase executive confidence in your technical proposal?",
+    deepA: "By explicitly stating what your proposed solution CANNOT do ('State Limits Honestly'), you signal objectivity rather than salesmanship, which makes stakeholders trust what you claim it CAN do."
+  },
+  {
+    num: "#12b", name: "Pride and Fall", tagline: "The Icarus Trap for Incumbents", cat: "Structure", col: "#2563eb",
+    diag: "Leadership dismisses emerging competitors or scrappy internal tools because 'legacy makes all the money.'",
+    conc: "Analyzes why dominant teams fail not from lack of capability, but from excessive belief in their historical playbook.",
+    steps: "1. Zenith: Peak dominance where the incumbent felt untouchable.\n2. Dismissed Signal: The small alternative method dismissed as a passing fad.\n3. Fatal Double-Down: Pouring resources into preserving the old system.\n4. Reckoning: Rapid collapse when the market crossed the tipping point.",
+    trap: "The Spite Trap: Sounding bitter about legacy leadership rather than forensically analyzing market risks.",
+    rb: ["Tragedy"], ra: ["New Nightmare", "Dragon & The City"],
+    deepQ: "What is 'The Fatal Double-Down' in 'Pride and Fall' (#12b), and why do dominant incumbents fall into it?",
+    deepA: "When an emerging alternative ('Dismissed Signal') appears, incumbents often pour even more capital into optimizing their legacy cash cow rather than cannibalizing or adapting it, accelerating their 'Reckoning' once the market tips."
+  },
+
+  // --- CONCEPT (7) ---
+  {
+    num: "#13", name: "What's It About?", tagline: "The One-Breath Logline", cat: "Concept", col: "#dc2626",
+    diag: "I am confusing my technical topic (the software tool) with my actual story (the struggle and outcome).",
+    conc: "The acid test for clarity. If you cannot explain the narrative core in a single breath, you do not yet understand it well enough.",
+    steps: "1. Identify Protagonist: Name the frontline human character doing the work.\n2. Define Goal: State the specific objective they want to achieve.\n3. Identify Obstacle: State the severe friction blocking them.\n4. State Decisive Action: State the architectural or procedural change deployed.\n5. Establish Stakes: State the deadline, audit, or consequence.\n6. Assemble: 'This is a story about [Protagonist] who wanted [Goal], but ran into [Obstacle], so they had to [Action] before [Deadline/Risk].'",
+    trap: "The Feature Trap: Naming tools, protocols, or features in your logline instead of human protagonists and obstacles.",
+    rb: ["Curiosity Gap", "Five Ws"], ra: ["The Story Spine", "Order & Priority"],
+    deepQ: "Recite the exact 5-part mad-lib formula for 'What's It About?' (#13) and explain why naming a software tool as the protagonist fails.",
+    deepA: "'This is a story about [Protagonist] who wanted [Goal], but ran into [Obstacle], so they had to [Action] before [Deadline/Risk].' Naming a tool fails (The Feature Trap) because tools don't experience risk or struggle—humans do."
+  },
+  {
+    num: "#14", name: "Dragon & The City", tagline: "The Call to Leave the Walls", cat: "Concept", col: "#dc2626",
+    diag: "The team clings to familiar routines and rejects changes because they feel safe inside the status quo.",
+    conc: "Honoring current security ('The City') while explaining why the approaching risk ('The Dragon') demands an expedition outside.",
+    steps: "1. The City: Validate what works today and honor past team efforts.\n2. The Dragon: Define the looming external threat if the team stands still.\n3. The Expedition: Detail who must step forward, what tools they will take, and the new territory to claim.",
+    trap: "The Invalidation Trap: Dismissing existing workflows as broken or stupid, which alienates the staff who built them.",
+    rb: ["Why It Matters"], ra: ["Drive, Drag, Dread", "The Quest"],
+    deepQ: "You are proposing a major workflow overhaul to veterans who built the current system. How does Step 1 of 'Dragon & The City' prevent defensiveness?",
+    deepA: "Step 1 ('The City') explicitly honors the current workflow and the people who built it—acknowledging how well it protected the organization up to today—before introducing 'The Dragon' (the new external shift that requires leaving the walls)."
+  },
+  {
+    num: "#15", name: "Why It Matters", tagline: "The 'So What?' Ladder", cat: "Concept", col: "#dc2626",
+    diag: "Leadership stares blankly at my operational metrics and misses their strategic importance.",
+    conc: "Climbing from floor-level technical facts up to executive business and human consequences.",
+    steps: "1. Rung 1 (The Fact): 'We refactored staging ETL and cut refresh latency from 45 min to 3 min.'\n2. Rung 2 (Operational Impact - So What?): 'Analysts review deviation data live during active shifts rather than next morning.'\n3. Rung 3 (Strategic Impact - What That Really Means): 'Eliminates 15 hours of emergency rework, prevents batch disposal, and protects client SLAs.'",
+    trap: "The Ground Floor Trap: Stopping at Rung 1 and assuming leadership will intuitively deduce the business value.",
+    rb: ["The Baseline", "Data Detective"], ra: ["Audience Profile", "Dragon & The City"],
+    deepQ: "Take the technical fact 'We automated schema validation on intake' and climb all 3 rungs of 'Why It Matters' (#15).",
+    deepA: "Rung 1 (Fact): Automated schema validation on intake. Rung 2 (Operational 'So What?'): Corrupted CSVs are rejected at upload instead of breaking nightly ETL runs. Rung 3 (Strategic Impact): Eliminates morning data outages and protects executive SLA reporting."
+  },
+  {
+    num: "#16", name: "What's My Motivation?", tagline: "The 3 Layers of Desire", cat: "Concept", col: "#dc2626",
+    diag: "The team treats the project like a checklist chore because their only stated goal is hitting a quarterly metric.",
+    conc: "Uncovering the personal and collective needs behind an administrative goal to create genuine emotional commitment.",
+    steps: "1. External Want: The deliverable on paper (e.g. 'Deploy automated reporting module').\n2. Internal Need: The emotional relief (e.g. 'No more frantic weekend pages or late-night crisis calls').\n3. The Greater Good: How this work protects clients or frontline colleagues.",
+    trap: "The Quota Trap: Mistaking an administrative KPI for genuine human motivation.",
+    rb: ["Why It Matters"], ra: ["Drive, Drag, Dread", "Hero & Guide"],
+    deepQ: "What are the 3 layers of desire in 'What's My Motivation?' (#16), and why does stopping at Layer 1 cause apathy?",
+    deepA: "(1) External Want (the paper deliverable), (2) Internal Need (personal emotional relief, e.g., peaceful weekends), and (3) The Greater Good (helping colleagues/clients). Stopping at Layer 1 is the Quota Trap—administrative KPIs don't inspire emotional commitment."
+  },
+  {
+    num: "#17", name: "Innovation Curve", tagline: "Targeting Risk Tolerance", cat: "Concept", col: "#dc2626",
+    diag: "I am pitching innovative disruption to an operational manager whose performance metric is zero downtime.",
+    conc: "Tailoring narrative framing to match audience risk tolerance across Rogers' Diffusion of Innovations curve.",
+    steps: "1. Early Adopters: 'Be the first to capture an asymmetric operational edge.'\n2. Early Majority: 'Here is how 12 peer organizations proved this standard and reduced risk.'\n3. Late Majority / Laggards: 'Vendor support for the legacy stack ends in 6 months; inaction is now your greatest exposure.'",
+    trap: "The Visionary Trap: Giving a high-risk visionary pitch to an operational pragmatist whose KPI is uptime.",
+    rb: ["Audience Profile"], ra: ["Social Proof", "Simple Sales Stories"],
+    deepQ: "How should your pitch framing change between an 'Early Adopter', an 'Early Majority' pragmatist, and a 'Late Majority' skeptic?",
+    deepA: "Early Adopters want asymmetric advantage ('be first'); Early Majority pragmatists want peer proof and de-risked stability ('12 peer teams proved this'); Late Majority skeptics move only when staying put is riskier than changing ('legacy support ends in 6 months')."
+  },
+  {
+    num: "#18", name: "Big Fish, Little Fish", tagline: "The Reference Container", cat: "Concept", col: "#dc2626",
+    diag: "The audience is unimpressed by raw numbers because large metrics lack intuitive context.",
+    conc: "Human intuition cannot grasp abstract large numbers without a familiar physical reference container.",
+    steps: "1. Raw Metric: 'Our servers process 4.2 million database reads an hour.'\n2. Familiar Container: 'That is roughly equal to every resident in our state refreshing the dashboard simultaneously every hour.'\n3. Operational Meaning: 'Which means a 200ms latency slowdown wastes 230 hours of cumulative client time daily.'",
+    trap: "The Vacuum Trap: Dropping isolated metrics without comparing them to a relatable physical object or human scale.",
+    rb: ["Data Detective"], ra: ["Why It Matters", "Show and Tell"],
+    deepQ: "Why do raw enterprise metrics often fail to move executives, and what 3-step sequence fixes this in 'Big Fish, Little Fish'?",
+    deepA: "Large numbers in a vacuum are cognitively abstract (The Vacuum Trap). Fix it by pairing (1) the Raw Metric with (2) a Familiar Reference Container (relatable human/physical scale) and (3) the Operational Meaning (cumulative hours/dollars saved)."
+  },
+  {
+    num: "#19", name: "The Butterfly Effect", tagline: "The Domino of Neglect", cat: "Concept", col: "#dc2626",
+    diag: "Leadership refuses budget for preventative testing, linting, or upstream data hygiene.",
+    conc: "Demonstrating how a small, skipped validation check upstream cascades into catastrophic downstream failure.",
+    steps: "1. The Shortcut: Skipping an optional field during intake to save 30 seconds.\n2. The Defect: The unmapped field passes staging ETL undetected.\n3. The Downstream Failure: Monthly reconciliation reports aggregate incorrectly.\n4. The Fallout: Three senior engineers spend 40 hours debugging production logs to track the missing value.",
+    trap: "The Hysteria Trap: Jumping straight to doom without forensically demonstrating the logical domino links in between.",
+    rb: ["Five Ws"], ra: ["New Nightmare", "Show and Tell"],
+    deepQ: "How do you justify budget for upstream data hygiene using 'The Butterfly Effect' without falling into 'The Hysteria Trap'?",
+    deepA: "Instead of making dramatic leaps to disaster, trace every forensic domino link in sequence: (1) The 30-second upstream Shortcut ➔ (2) The undetected staging Defect ➔ (3) The Downstream Failure ➔ (4) The 40-hour engineering Fallout."
+  },
+
+  // --- EXPLORE (11) ---
+  {
+    num: "#20", name: "Data Detective", tagline: "The Clue in the Numbers", cat: "Explore", col: "#ea580c",
+    diag: "I have a deck full of charts, but the audience is losing focus and missing the core takeaway.",
+    conc: "Framing data as an investigative mystery: an anomaly appears, clues are traced, and an operational truth is uncovered.",
+    steps: "1. The Anomaly: Highlight the single unexpected outlier on the baseline chart.\n2. The Red Herring: The intuitive explanation that proved false upon closer inspection.\n3. The Forensic Trace: Following the data footprint through the workflow.\n4. The Revelation: The root behavioral or operational cause driving the metric.",
+    trap: "The Chart Dump Trap: Showing multiple equal charts without highlighting the one anomalous clue that matters.",
+    rb: ["The Baseline", "Five Ws"], ra: ["Five Ts", "Show and Tell"],
+    deepQ: "Why is 'The Red Herring' (Step 2) such a powerful beat when presenting data analysis in 'Data Detective'?",
+    deepA: "Because stakeholders in the room are usually thinking of that exact obvious explanation. By showing that you already tested the intuitive 'Red Herring' and proved it false, you hook their curiosity and preempt interruptions."
+  },
+  {
+    num: "#21", name: "Movie Time", tagline: "The Sensory Anchor", cat: "Explore", col: "#ea580c",
+    diag: "My incident summary is a dry wall of text that fails to convey the urgency of what happened.",
+    conc: "Dropping the audience into a specific, observable scene to engage episodic and sensory memory.",
+    steps: "1. Time & Location: 'It was 4:30 PM on a Friday before a holiday weekend in the cleanroom...'\n2. Specific Action: 'The alert flashed red on Terminal 4 and the batch record sync stalled.'\n3. Immediate Reaction: 'Every phone in the QA unit rang simultaneously.'\n➔ Pivot immediately from the scene into the systemic issue.",
+    trap: "The Novelist Trap: Spending too much time describing room furniture. Keep it to 30 seconds, then pivot to system impact.",
+    rb: ["Story Hooks", "Curiosity Gap"], ra: ["Rolls Royce Moment", "Show and Tell"],
+    deepQ: "What are the 3 sensory components of a 'Movie Time' opening, and how long should it last before pivoting?",
+    deepA: "(1) Exact Time & Location, (2) Specific observable Action, and (3) Immediate human/system Reaction. Keep it under 30 seconds to avoid 'The Novelist Trap', then pivot immediately to the systemic issue."
+  },
+  {
+    num: "#22", name: "Curiosity Gap", tagline: "The Open Loop", cat: "Explore", col: "#ea580c",
+    diag: "The audience tunes out during the necessary background context of my presentation.",
+    conc: "Opening a narrative loop early to command attention, delaying the answer, and closing it with insight.",
+    steps: "1. State the Common Assumption: 'Everyone assumes step 3 is our operational bottleneck.'\n2. Introduce the Contradiction: 'Yet our audit showed step 3 runs twice as fast as expected, while total turnaround time continues to degrade.'\n3. Lay the Groundwork: Guide them through the workflow before revealing the hidden friction.\n4. Close the Loop: Deliver the root cause and the path forward.",
+    trap: "The Clickbait Trap: Making a provocative promise that fails to pay off with substantive operational truth.",
+    rb: ["Story Hooks"], ra: ["Movie Time", "Abstraction Ladder"],
+    deepQ: "How do you keep an audience engaged during 3 minutes of necessary technical background using 'Curiosity Gap' (#22)?",
+    deepA: "Open a loop first by stating a Common Assumption and immediately introducing a data Contradiction. Because the audience wants to know *why* the contradiction exists, they pay close attention to the background groundwork until you Close the Loop."
+  },
+  {
+    num: "#23", name: "The Baseline", tagline: "Ground Zero Consensus", cat: "Explore", col: "#ea580c",
+    diag: "Stakeholders question our progress metrics because they don't believe our starting numbers.",
+    conc: "Locking in an undisputed, calibrated zero-point before presenting results or proposals.",
+    steps: "1. Time Spent: 'We spent 32 hours weekly on manual reconciliation.'\n2. Error Rate: 'Average defect rate was 4.2% across intake.'\n3. Emotional Cost: 'Turnover in the role was 35% annually.'\n➔ Lock in stakeholder consensus on this baseline before showing improvements.",
+    trap: "The Unanchored Win Trap: Celebrating a 50% improvement without anchoring what the baseline reality actually cost.",
+    rb: ["Five Ws"], ra: ["Data Detective", "Why It Matters", "Simple Sales Stories"],
+    deepQ: "What 3 dimensions should you calibrate in 'The Baseline' (#23) before unveiling any project improvements?",
+    deepA: "(1) Time Spent (hours lost), (2) Error/Defect Rate (quality cost), and (3) Emotional/Human Cost (turnover, burnout). Getting explicit head-nods on these three prevents 'The Unanchored Win Trap'."
+  },
+  {
+    num: "#24", name: "Five Ws", tagline: "Journalistic Interrogation", cat: "Explore", col: "#ea580c",
+    diag: "The team's project brief is filled with vague generalities (e.g., 'Operations experienced friction').",
+    conc: "Interrogating vague corporate claims to isolate the factual core before building a narrative.",
+    steps: "1. Who: Specific individuals or roles involved (not 'the department').\n2. What: Specific object, script, database row, or machine that broke.\n3. Where: Specific facility, cleanroom, server rack, or desk.\n4. When: Exact shift, date, calendar quarter, or timestamp.\n5. Why: The upstream assumption or policy failure that enabled it.",
+    trap: "The Premature Why Trap: Letting people speculate on 'Why' before establishing the factual Who, What, Where, and When.",
+    rb: ["Story Listening"], ra: ["The Baseline", "Data Detective", "Five Ts"],
+    deepQ: "In an incident review, why must you strictly enforce the order of the 'Five Ws' and delay 'Why' until last?",
+    deepA: "Allowing the room to debate 'Why' first triggers 'The Premature Why Trap'—people speculate based on bias before agreeing on the concrete Who, What, Where, and When facts."
+  },
+  {
+    num: "#25", name: "Story Hooks", tagline: "15-Second Pattern Interrupt", cat: "Explore", col: "#ea580c",
+    diag: "The room is distracted by laptops and phones during the opening two minutes of my talk.",
+    conc: "A pattern interrupt delivered in the first 15 seconds to break standard corporate autopilot.",
+    steps: "Choose 1 of 4 hooks:\n1. Counter-Intuitive Metric: '70% of our pipeline defects originated from our two most senior analysts. Here is why.'\n2. Sensory Scene: Drop directly into Movie Time.\n3. Provocative Question: 'What is the most expensive manual task our team repeats every Monday?'\n4. Physical Prop: Display the raw error ticket or 4-inch binder before speaking.",
+    trap: "The Administrative Trap: Opening with 'Can everyone hear me?', slide agendas, or corporate introductions.",
+    rb: ["Five Ws"], ra: ["Movie Time", "The Story Spine", "First Word, Last Word"],
+    deepQ: "Name the 4 types of 'Story Hooks' (#25) you can deploy in the first 15 seconds to break corporate autopilot.",
+    deepA: "(1) Counter-Intuitive Metric, (2) Sensory Scene (Movie Time), (3) Provocative Question, or (4) Physical Prop (holding up a tangible artifact like a 4-inch manual binder)."
+  },
+  {
+    num: "#26", name: "Social Proof", tagline: "The Peer Mirror", cat: "Explore", col: "#ea580c",
+    diag: "Stakeholders are terrified of being the first guinea pig for an unproven internal tool.",
+    conc: "Stakeholders want proof that credible peers facing identical constraints have already survived this transition.",
+    steps: "1. Match the Profile: Pick a peer unit with identical regulatory and scale constraints.\n2. Acknowledge Shared Skepticism: 'Six months ago, Team X had the exact same reservation: they worried migration would disrupt delivery.'\n3. Show the Smooth Adoption: How they adopted in low-risk increments.\n4. Deliver the Verdict: Quote their manager on metric stability.",
+    trap: "The Giant Trap: Citing tech giants whose scale and resources bear zero resemblance to your audience's reality.",
+    rb: ["Innovation Curve"], ra: ["Rolls Royce Moment", "Simple Sales Stories"],
+    deepQ: "Why does citing companies like Google or Netflix backfire when using 'Social Proof' (#26) with a regulated enterprise team?",
+    deepA: "That is 'The Giant Trap'. Regulated teams dismiss examples from tech giants because their constraints don't match. You must pick a peer unit with identical regulatory/scale limits and highlight their shared initial skepticism."
+  },
+  {
+    num: "#27", name: "Roll the Dice", tagline: "The Creative Collision", cat: "Explore", col: "#ea580c",
+    diag: "The team is suffering from creative block while brainstorming presentation angles.",
+    conc: "Colliding two unrelated ideas under artificial constraints to break mental ruts and surface fresh storylines.",
+    steps: "1. Die 1 (Protagonist): The newest intern, the skeptical auditor, the automated server.\n2. Die 2 (Setting / Constraint): Midnight deadline, zero budget, complete power outage.\n3. Die 3 (Plot): Story Spine, Man in a Hole, or Five Ts.\n➔ Draft a 10-minute rough outline based on that collision.",
+    trap: "The Silliness Trap: Entertaining whimsical scenarios that cannot be translated back to actual operational priorities.",
+    rb: ["Icebreaker"], ra: ["What's It About?", "The Story Spine"],
+    deepQ: "How does 'Roll the Dice' (#27) break creative block while avoiding 'The Silliness Trap'?",
+    deepA: "It forces a structured 3-part collision—unusual Protagonist (e.g., skeptical auditor) + severe Constraint (e.g., zero budget) + classic Plot (e.g., Five Ts)—that surfaces fresh operational angles while staying grounded in real work."
+  },
+  {
+    num: "#28", name: "Secrets & Puzzles", tagline: "Uncovering Hidden Realities", cat: "Explore", col: "#ea580c",
+    diag: "We keep adding dashboards to solve a problem that is actually driven by unwritten cultural rules.",
+    conc: "A puzzle has a missing data point; a secret requires deep qualitative context and trust to reveal.",
+    steps: "1. If it's a Puzzle: Run the database query, collect the missing metric, close the gap.\n2. If it's a Secret: Step away from spreadsheets. Conduct one-on-one confidential interviews to understand why staff bypass official procedures.",
+    trap: "The Dashboard Delusion: Believing more data visualization will solve a problem caused by cultural fear or perverse incentives.",
+    rb: ["Five Ws"], ra: ["Story Listening", "Data Detective"],
+    deepQ: "What is the difference between a 'Puzzle' and a 'Secret' (#28), and why does 'The Dashboard Delusion' occur?",
+    deepA: "A Puzzle is solved by finding a missing quantitative metric; a Secret is an unwritten cultural reality (e.g., why staff bypass SOPs out of fear). The Dashboard Delusion happens when leaders build more charts to fix a cultural Secret."
+  },
+  {
+    num: "#29", name: "What If?", tagline: "Constraint Inversion", cat: "Explore", col: "#ea580c",
+    diag: "The team is trapped in cautious, incremental thinking and cannot see breakthrough solutions.",
+    conc: "Systematic constraint inversion to shock teams out of incremental ruts by bending operational rules.",
+    steps: "1. Zero-Constraint: 'What would our workflow look like if manual data entry were banned by law tomorrow?'\n2. Scarcity Inversion: 'If our budget were slashed by 80%, what 20% of our pipeline would we fight to keep alive?'\n3. Speed Inversion: 'If we had to deliver this in 7 days instead of 6 months, what manual gates would we automate immediately?'",
+    trap: "The Sci-Fi Trap: Entertaining pure fantasy that cannot be reverse-engineered back to reality.",
+    rb: ["Roll the Dice"], ra: ["What's It About?", "Innovation Curve"],
+    deepQ: "Name the 3 constraint inversions in 'What If?' (#29) used to shock a team out of incrementalism.",
+    deepA: "(1) Zero-Constraint (e.g., what if manual entry were banned by law?), (2) Scarcity Inversion (if budget dropped 80%, what core 20% survives?), and (3) Speed Inversion (how would we ship in 7 days instead of 6 months?)."
+  },
+  {
+    num: "#30", name: "Icebreaker", tagline: "Surfacing Ambient Friction", cat: "Explore", col: "#ea580c",
+    diag: "Participants enter the workshop guarded, distracted, or cynical.",
+    conc: "A low-stakes facilitation prompt to lower group defenses and surface ambient operational friction before introducing technical tools.",
+    steps: "1. Prompt 1: 'In 60 seconds: what is the single most frustrating manual task you had to perform this week?'\n2. Prompt 2: 'What is one tool or process we use every day that makes you wonder: Why are we still doing it this way?'\n➔ Cluster the answers on a whiteboard to prove that friction is systemic, not personal.",
+    trap: "The Kindergarten Trap: Using infantilizing party games ('What animal would you be?') that insult professional teams.",
+    rb: ["Story Listening"], ra: ["Story Bank", "Audience Profile"],
+    deepQ: "Why do standard corporate icebreakers alienate technical teams, and what should you ask instead using 'Icebreaker' (#30)?",
+    deepA: "Party games fall into 'The Kindergarten Trap'. Instead, ask 60-second operational friction prompts ('What was your most frustrating manual task this week?') and cluster them on a whiteboard to show that pain is systemic."
+  },
+
+  // --- CHARACTER (10) ---
+  {
+    num: "#31", name: "Hero & Guide", tagline: "Stop Boasting, Start Guiding", cat: "Character", col: "#d97706",
+    diag: "My pitch sounds self-centered—I am boasting about our solution and the audience is disengaged.",
+    conc: "Your customer or stakeholder is Luke Skywalker; you are Yoda. Your team or software is only the tool that helps them win.",
+    steps: "1. Cast the Hero: Name the stakeholder and define their primary goal.\n2. Define the Monster: Name the external obstacle blocking them.\n3. Establish Empathy: 'We understand this challenge because we have navigated it before.'\n4. Provide the Plan: Deliver a clear 3-step implementation roadmap.\n5. Hand Over the Tool: Introduce your software or service as the tool they will wield.\n6. Define Stakes: Contrast what failure is avoided with what victory is achieved.",
+    trap: "The Ego Trap: Positioning yourself as the hero who conquered the dragon, making the audience feel incompetent.",
+    rb: ["Audience Profile", "Three Great Conflicts"], ra: ["Simple Sales Stories", "Pitch Perfect"],
+    deepQ: "In 'Hero & Guide' (#31), what are the exact roles of (a) the Stakeholder, (b) You/Your Team, and (c) Your Software/Proposal?",
+    deepA: "(a) The Stakeholder is the Hero, (b) You are the Guide (providing empathy + a 3-step plan), and (c) Your Software/Proposal is the Tool handed over for the Hero to wield against the Monster."
+  },
+  {
+    num: "#32", name: "Drive, Drag, Dread", tagline: "The Emotional Compass", cat: "Character", col: "#d97706",
+    diag: "I am appealing only to positive aspirations while ignoring the unspoken fears blocking stakeholder approval.",
+    conc: "Mapping the three internal emotional currents that govern human decision-making: ambition, friction, and terror.",
+    steps: "1. Drive (Ambition): What do they want to build? What earns them recognition or advancement?\n2. Drag (Friction): What manual red tape, bad tooling, or exhaustion drains their daily energy?\n3. Dread (Fear): What nightmare scenario keeps them awake at night? (Audit failure, outage, public error).\n➔ Show how your proposal fuels Drive, cuts Drag, and guards against Dread.",
+    trap: "The Logic-Only Trap: Pitching purely on operational logic without addressing the Dread that causes decision paralysis.",
+    rb: ["Audience Profile", "Dragon & The City"], ra: ["Hero & Guide", "Happy Endings"],
+    deepQ: "Define 'Drive', 'Drag', and 'Dread' (#32) for a Quality Assurance Director evaluating a new automation tool.",
+    deepA: "Drive: Faster batch release and recognition for modernization. Drag: Hours spent chasing manual signatures and spreadsheet typos. Dread: An unspotted deviation causing a regulatory audit finding or product recall."
+  },
+  {
+    num: "#33", name: "Good & Evil", tagline: "Personifying Systemic Friction", cat: "Character", col: "#d97706",
+    diag: "The team is unmotivated because fighting 'inefficiency' feels too abstract and lifeless.",
+    conc: "Personifying systemic operational friction as an identifiable antagonist with habits and a footprint.",
+    steps: "1. Name the Villain: Personify the systemic problem (e.g., 'The Ghost Spreadsheet' or 'The Zombie Process').\n2. Show the Damage: Document what it steals from the team (weekend hours, compliance safety, focus).\n3. Rally the Defense: Position your project as the shared initiative to defeat this adversary.",
+    trap: "The Finger-Pointing Trap: Turning real human colleagues into the villain. The enemy must always be systemic or cultural.",
+    rb: ["Three Great Conflicts", "Thought Bubble"], ra: ["Hero & Guide", "New Nightmare"],
+    deepQ: "How does 'Good & Evil' (#33) make fighting an abstract process inefficiency feel urgent without blaming coworkers?",
+    deepA: "By giving the broken process a memorable persona ('The Zombie Process' or 'The Ghost Spreadsheet'), documenting what it steals from the team (weekends, sanity), and rallying everyone against that systemic villain."
+  },
+  {
+    num: "#34", name: "Character Flaws", tagline: "Credibility Through Vulnerability", cat: "Character", col: "#d97706",
+    diag: "Our presentation feels like corporate PR because we pretend our project went smoothly from day one.",
+    conc: "Admitting an early miscalculation or blind spot earns deep credibility and makes subsequent success authentic.",
+    steps: "1. The Honest Blind Spot: 'When we first launched, we focused entirely on query speed and ignored user interface ergonomics.'\n2. The Fallout: Adoption stalled and users reverted to spreadsheets.\n3. The Adaptation: How the team listened to feedback, corrected assumptions, and rebuilt the workflow.",
+    trap: "The Fatal Flaw Trap: Confusing a calculated early misstep with gross incompetence that alarms leadership.",
+    rb: ["Story Listening"], ra: ["Man in a Hole", "Superpowers"],
+    deepQ: "What is the boundary between an effective 'Character Flaw' (#34) that builds trust and 'The Fatal Flaw Trap'?",
+    deepA: "An effective Character Flaw admits an understandable early blind spot (e.g., optimizing backend speed before UI ergonomics) followed by rapid learning and adaptation—not gross negligence or ethical failure."
+  },
+  {
+    num: "#35", name: "Six Men & An Elephant", tagline: "The Parable of Perspectives", cat: "Character", col: "#d97706",
+    diag: "Cross-functional teams are arguing over solutions because each sees only their slice of the organization.",
+    conc: "Silos fight because departments optimize for different truths. Revealing the whole elephant aligns all perspectives into one system.",
+    steps: "1. Engineering: Sees technical debt and architectural maintenance.\n2. Finance: Sees OpEx run-rates and budget ceilings.\n3. QA / Compliance: Sees audit exposure and data integrity.\n4. Operations: Sees throughput speed and delivery deadlines.\n➔ Reveal the integrated diagram showing how these needs form a single interconnected system.",
+    trap: "The Demonizing Trap: Assuming the other department is being stubborn rather than faithfully executing their designated KPIs.",
+    rb: ["Story Listening"], ra: ["Comedy (The Tangle)", "Abstraction Ladder"],
+    deepQ: "How do you use 'Six Men & An Elephant' (#35) to align Engineering, Finance, QA, and Operations in a single meeting?",
+    deepA: "Explicitly validate each department's slice of the truth (tech debt, OpEx, audit safety, throughput) as legitimate KPIs, then reveal an integrated workflow showing how your proposal satisfies the whole elephant."
+  },
+  {
+    num: "#36", name: "Make It Personal", tagline: "Putting Skin in the Game", cat: "Character", col: "#d97706",
+    diag: "My presentation feels clinical, bureaucratic, and detached from genuine conviction.",
+    conc: "Audiences connect with individuals who put their professional reputation on the line, not faceless committees.",
+    steps: "1. Identify Personal Stake: What did you personally learn or sacrifice on this project?\n2. Deliver Ownership Sentence: 'I am putting my name behind this recommendation because I watched our frontline team spend six months fighting this manual bottleneck, and I refuse to let them face that for another quarter.'",
+    trap: "The Oversharing Trap: Sharing irrelevant personal life stories that distract from the core business decision.",
+    rb: ["Character Flaws"], ra: ["Audience Profile", "Pitch Perfect"],
+    deepQ: "How do you 'Make It Personal' (#36) in an executive briefing without falling into 'The Oversharing Trap'?",
+    deepA: "Keep the personal stake anchored in professional conviction—delivering a clear ownership sentence that puts your reputation behind the recommendation because you witnessed the frontline impact firsthand."
+  },
+  {
+    num: "#37", name: "Action Hero", tagline: "The Frontline Protagonist", cat: "Character", col: "#d97706",
+    diag: "My proposal hides behind passive committee language (e.g., 'A review was conducted by operations').",
+    conc: "Replace abstract committee verbs with a specific frontline actor taking a physical action in real time.",
+    steps: "1. Cast the Agent: 'Meet Sarah, a third-shift quality analyst.'\n2. Physical Motion: Replace 'evaluated operational options' with: 'Sarah walked across the production floor, halted Line 3, and pulled the batch log off the terminal.'\n3. The Ripple: Show how Sarah's direct choice triggered systemic workflow improvements.",
+    trap: "The Superhuman Trap: Making the action hero sound like a genius who solved everything alone, rather than a normal worker dealing with systemic friction.",
+    rb: ["Hero & Guide"], ra: ["Show and Tell", "What's It About?"],
+    deepQ: "Rewrite the passive sentence 'Operational bottlenecks were identified during shift handoff reviews' using 'Action Hero' (#37).",
+    deepA: "'At 6:00 AM during shift handoff, lead technician Marcus spotted three stalled batch tickets on Terminal 2, walked to the staging area, and traced the lockup to a single unindexed table.'"
+  },
+  {
+    num: "#38", name: "Superpowers", tagline: "The Asymmetric Advantage", cat: "Character", col: "#d97706",
+    diag: "The team is insecure about resource limitations compared to well-funded competitors or larger divisions.",
+    conc: "Framing resource constraints as the forcing function that built your team's proprietary, asymmetric edge.",
+    steps: "1. Origin Story: What crisis or constraint forced you to invent your current workflow?\n2. Asymmetric Advantage: What takes your team 30 minutes that takes peers three weeks?\n3. Kryptonite: What inherent blind spot does this superpower create that you must guard against?",
+    trap: "The Generic Trap: Claiming generic virtues like 'we work hard' or 'we care about quality' as superpowers.",
+    rb: ["Character Flaws", "Rags to Riches"], ra: ["Pitch Perfect", "Thought Leadership"],
+    deepQ: "What are the 3 required elements of 'Superpowers' (#38), and why is 'Kryptonite' essential to include?",
+    deepA: "(1) Origin Story (the constraint that forged the skill), (2) Asymmetric Advantage (what you do in 30 mins that takes others 3 weeks), and (3) Kryptonite (the blind spot created by your strength, which makes the claim believable)."
+  },
+  {
+    num: "#39", name: "To The Rescue", tagline: "The Collaborative Lifeline", cat: "Character", col: "#d97706",
+    diag: "An overwhelmed team resists our help because unsolicited assistance feels like an accusation of incompetence.",
+    conc: "How to step in and support an embattled team without triggering defensiveness, resentment, or shame.",
+    steps: "1. Validate Challenge: 'No team could have absorbed that volume surge with the legacy tooling.'\n2. Provide Immediate Heavy Lifting: Offer immediate tactical relief on low-hanging bottlenecks.\n3. Transfer Capability: Equip them to own and run the permanent solution going forward.",
+    trap: "The Savior Complex: Arriving like the brilliant expert who knows everything, instantly alienating the people who have been fighting the problem on the ground.",
+    rb: ["Drive, Drag, Dread"], ra: ["Hero & Guide", "Down to Business"],
+    deepQ: "You are sent to help a sister team whose backlog is exploding. How do you execute 'To The Rescue' (#39) without triggering 'The Savior Complex'?",
+    deepA: "First, validate that no team could have survived that volume surge with legacy tools. Second, shoulder immediate tactical heavy lifting. Third, transfer ownership so they remain the heroes of their system."
+  },
+  {
+    num: "#40", name: "The Proud Flea", tagline: "Generous Attribution", cat: "Character", col: "#d97706",
+    diag: "Our breakthrough presentation is triggering resentment from upstream infrastructure and data teams.",
+    conc: "Based on the fable of the flea on the elephant's ear saying: 'Look how much dust we're kicking up!' Generous attribution disarms cynicism.",
+    steps: "1. Acknowledge the Elephant: Explicitly credit foundational data engineering, infrastructure, or regulatory groundwork.\n2. Attribution Statement: 'Our automated dashboard runs in 3 seconds today only because the data infrastructure team spent six months cleaning up tables upstream.'",
+    trap: "The Solo Hero Trap: Claiming sole credit for a victory that was made possible by upstream platforms.",
+    rb: ["Trust Me I'm an Expert"], ra: ["Six Men & An Elephant", "Show Your Working"],
+    deepQ: "What is the fable behind 'The Proud Flea' (#40), and how do you apply it during an executive victory readout?",
+    deepA: "A flea riding on an elephant's ear boasts about how much dust it is kicking up. Apply it by explicitly crediting the 'Elephant'—the upstream infrastructure, data, or QA teams whose foundational work made your visible win possible."
+  },
+
+  // --- FUNCTION (9) ---
+  {
+    num: "#41", name: "Simple Sales Stories", tagline: "The Before-After-Bridge", cat: "Function", col: "#059669",
+    diag: "I am diving straight into solution features before establishing why staying with the status quo is unsustainable.",
+    conc: "Decisions are emotional commitments justified by logic. Bridge today's friction and tomorrow's relief with a 3-part arc.",
+    steps: "1. Before (Visceral Status Quo): Describe daily operational grind with the problem.\n2. Turning Point (The Catalyst): The exact moment staying the same became more painful than changing.\n3. After (The New Reality): The operational relief, confidence, and metrics on the other side.\n4. The Bridge: The exact roadmap or mechanism that connects Before to After.",
+    trap: "The Weak Before Trap: Describing the status quo too politely to avoid hurting feelings. If Before isn't painful, stakeholders won't change.",
+    rb: ["Hero & Guide", "The Baseline"], ra: ["Rolls Royce Moment", "Pitch Perfect"],
+    deepQ: "Why do most internal proposals fail at Step 1 of 'Simple Sales Stories' (#41)?",
+    deepA: "They fall into 'The Weak Before Trap'—describing the current status quo too politely or abstractly. If the 'Before' state doesn't feel viscerally unsustainable, stakeholders have zero emotional urgency to cross 'The Bridge'."
+  },
+  {
+    num: "#42", name: "Pitch Perfect", tagline: "The 5-Minute Pitch Engine", cat: "Function", col: "#059669",
+    diag: "My presentation ends on an awkward 'any questions?' slide instead of a clear decision ask.",
+    conc: "A structured 5-minute presentation architecture: Hook ➔ Problem ➔ Solution ➔ Proof ➔ Ask.",
+    steps: "1. Hook (30s): Provocative statistic or relatable operational frustration.\n2. Problem (60s): Cast the audience as the Hero struggling against the systemic monster.\n3. Solution (90s): Introduce the Guide's roadmap and tool.\n4. Proof (60s): Deliver a Rolls Royce Moment or peer case study.\n5. The Ask (30s): A single, low-friction next step (sandbox trial, discovery meeting).",
+    trap: "The Marriage on First Date Trap: Asking for enterprise-wide commitment on the first meeting rather than a low-risk trial or discovery phase.",
+    rb: ["Simple Sales Stories", "Rolls Royce Moment"], ra: ["What Next?", "First Word, Last Word"],
+    deepQ: "Recite the 5 timed beats of 'Pitch Perfect' (#42) that add up to a 5-minute (300-second) pitch.",
+    deepA: "1. Hook (30s) ➔ 2. Problem (60s) ➔ 3. Solution (90s) ➔ 4. Proof (60s) ➔ 5. Low-Friction Ask (30s)."
+  },
+  {
+    num: "#43", name: "Down to Business", tagline: "The Executive Briefing", cat: "Function", col: "#059669",
+    diag: "I have 5 minutes with a senior executive who will cut me off if I use theatrical storytelling.",
+    conc: "Leading with the conclusion and following with options evaluated and the exact resource ask.",
+    steps: "1. Headline (Verdict): State the decision or finding in sentence 1.\n2. Context: Two critical facts explaining why this matters now.\n3. Options Evaluated: We reviewed options A, B, and C; rejected A and B due to specific trade-offs.\n4. Recommendation & Ask: The exact path forward, required resources, and next review date.",
+    trap: "The Slow Reveal Trap: Saving the recommendation for the final slide after a 20-minute chronological background setup.",
+    rb: ["Abstraction Ladder", "Goldilocks"], ra: ["Cut the Crap", "What Next?"],
+    deepQ: "How does 'Down to Business' (#43) invert traditional storytelling structure for impatient C-suite executives?",
+    deepA: "It avoids 'The Slow Reveal Trap' by putting the Headline Verdict in Sentence 1, followed immediately by 2 Context facts, Options Evaluated (and why A & B were rejected), and the exact Resource Ask."
+  },
+  {
+    num: "#44", name: "New Nightmare", tagline: "The Cost of Doing Nothing", cat: "Function", col: "#059669",
+    diag: "Stakeholders won't approve the budget because staying with the old system feels safe and familiar.",
+    conc: "Mapping the compounding, hidden cost of inaction to show that standing still carries far higher risk than changing.",
+    steps: "1. False Safety Today: Acknowledge why staying put feels comfortable right now.\n2. The Quiet Creep (Months 3–6): Friction accumulates under the surface (tech debt, turnover).\n3. The Breaking Point (Year 1–2): The inevitable shock (audit, outage) that shatters the unmaintained process.\n4. The Exit Ramp: The affordable intervention available right now to avert this outcome.",
+    trap: "The Chicken Little Trap: Exaggerating consequences into melodrama. Ground every stage in observable cause-and-effect.",
+    rb: ["The Butterfly Effect", "Dragon & The City"], ra: ["Pitch Perfect", "Down to Business"],
+    deepQ: "Walk through the 4 time-horizons of 'New Nightmare' (#44) to prove that 'doing nothing' is actually the riskiest option.",
+    deepA: "(1) False Safety Today (why status quo feels cheap now), (2) The Quiet Creep at Months 3–6 (accumulating hidden tech debt/turnover), (3) The Breaking Point at Year 1–2 (audit or outage shock), and (4) The Exit Ramp available today."
+  },
+  {
+    num: "#45", name: "Epic Fail", tagline: "The Blameless Post-Mortem", cat: "Function", col: "#059669",
+    diag: "The team covers up errors and avoids retrospectives out of fear of blame and punishment.",
+    conc: "A four-part autopsy framework turning high-impact failures into permanent organizational guardrails.",
+    steps: "1. Good Intention: What were we trying to accomplish, and why did it seem rational at the time?\n2. The Unraveling: The overlooked warning signal where assumptions broke down.\n3. The Impact: Quantifiable fallout (downtime, lost hours, budget deviation).\n4. The Guardrail: The permanent automated validation or policy check ensuring this error cannot repeat.",
+    trap: "The Human Blame Trap: Blaming an individual for typing the wrong command, rather than fixing the system that allowed one command to break production.",
+    rb: ["Tragedy", "Five Ts"], ra: ["The Story Spine", "Rebirth"],
+    deepQ: "Why does 'Epic Fail' (#45) begin with 'Good Intention' and end with 'The Guardrail'?",
+    deepA: "Starting with 'Good Intention' removes personal shame by showing why the decision seemed rational at the time; ending with 'The Guardrail' replaces human blame with an automated system check so the error can never recur."
+  },
+  {
+    num: "#46", name: "First Word, Last Word", tagline: "Primacy & Recency", cat: "Function", col: "#059669",
+    diag: "My talks start with administrative throat-clearing and trail off at the end with an awkward shrug.",
+    conc: "Never waste the first 60 seconds on housekeeping or the last 60 seconds on a trailing whisper.",
+    steps: "1. First Word (Opening Anchor): Open immediately with a provocative conflict: 'Last quarter, our team spent 410 hours on work a 10-line script should have handled.'\n2. Last Word (Closing Echo): Call back directly to the opening hook and end on a clear decision: 'We can keep paying that 410-hour tax next quarter, or deploy this script next Tuesday.'",
+    trap: "The Housekeeping Trap: Starting with 'Can everyone see my slides?' and ending with 'So yeah, that's basically it.'",
+    rb: ["Story Hooks", "Rolls Royce Moment"], ra: ["Pitch Perfect", "What Next?"],
+    deepQ: "What cognitive biases does 'First Word, Last Word' (#46) leverage, and how do the opening and closing sentences connect?",
+    deepA: "It leverages the Primacy and Recency effects—audiences remember the first 60 seconds and last 60 seconds best. The Last Word directly echoes the metric or image from the First Word and turns it into an immediate choice."
+  },
+  {
+    num: "#47", name: "What Next?", tagline: "The 48-Hour Micro-Action", cat: "Function", col: "#059669",
+    diag: "The meeting went well and everyone agreed in principle, but nobody took action once the room cleared.",
+    conc: "Lowering the activation energy between conceptual agreement and tangible operational work.",
+    steps: "1. 48-Hour Micro-Action: Name one immediate task: 'Run a sandbox pilot on 25 records this Thursday.'\n2. Explicit Ownership: Assign a single individual to drive the next step.\n3. Review Gate: Establish the exact date, time, and criteria for evaluating results.",
+    trap: "The Vague Request Trap: Ending with 'Let's keep the dialogue going' instead of a scheduled calendar deliverable.",
+    rb: ["Pitch Perfect", "Down to Business"], ra: ["First Word, Last Word"],
+    deepQ: "What 3 elements convert conceptual agreement in a meeting into real execution using 'What Next?' (#47)?",
+    deepA: "(1) A low-friction 48-Hour Micro-Action (e.g., a 25-record sandbox test), (2) Explicit single-person Ownership, and (3) A scheduled Review Gate with clear success criteria."
+  },
+  {
+    num: "#48", name: "Thought Leadership", tagline: "The Contrarian Point of View", cat: "Function", col: "#059669",
+    diag: "My blog post or keynote just recycles bland industry clichés without a distinct point of view.",
+    conc: "Staking out a forward-looking perspective that challenges comfortable industry consensus.",
+    steps: "1. The Orthodoxy: What does the industry currently accept as standard 'best practice'?\n2. The Flaw: Why has the macro environment or technology stack made that practice obsolete?\n3. The Counter-Thesis: Your contrarian, evidence-backed model.\n4. Proof of the Shift: Concrete data showing the old way is already failing.",
+    trap: "The Contrarian for Its Own Sake Trap: Being controversial without verifiable operational proof to back up your thesis.",
+    rb: ["Curiosity Gap"], ra: ["Pitch Perfect", "First Word, Last Word"],
+    deepQ: "How do you structure a 'Thought Leadership' (#48) argument so it challenges industry consensus credibly?",
+    deepA: "(1) Name The Orthodoxy (accepted best practice), (2) Expose The Flaw (why tech/macro shifts broke it), (3) Propose your Counter-Thesis, and (4) Back it with Proof of the Shift."
+  },
+  {
+    num: "#49", name: "Unintended Consequences", tagline: "The Cobra Effect", cat: "Function", col: "#059669",
+    diag: "A well-intentioned policy or automation created perverse incentives that worsened the problem.",
+    conc: "Demonstrating foresight about second-order fallout proves mature, systems-level thinking to executive leadership.",
+    steps: "1. The Good Intention: 'We introduced a strict SLA to close tickets within 48 hours.'\n2. The Workaround: 'Technicians prematurely closed complex tickets and asked clients to open duplicate tickets.'\n3. The Fallout: 'Client satisfaction plunged even though dashboard compliance was 99%.'\n➔ Guardrail: Measure actual system health rather than easily gameable proxies.",
+    trap: "The Naive Metric Trap: Assuming human beings won't adapt their behavior to optimize for whatever number is on their bonus review.",
+    rb: ["The Butterfly Effect", "Epic Fail"], ra: ["Character Flaws", "Down to Business"],
+    deepQ: "What is 'The Cobra Effect' in 'Unintended Consequences' (#49), and how do you guard against 'The Naive Metric Trap'?",
+    deepA: "When an incentive metric (e.g., 'close tickets in 48h') causes staff to game the proxy metric (closing tickets prematurely) at the expense of real system health. Guard against it by pairing speed KPIs with quality/outcome guardrails."
+  },
+
+  // --- STYLE (13) ---
+  {
+    num: "#50", name: "Rolls Royce Moment", tagline: "The Concrete Micro-Proof", cat: "Style", col: "#e11d48",
+    diag: "Our presentation relies on generic corporate buzzwords (e.g., 'robust,' 'scalable,' 'world-class').",
+    conc: "Finding one concrete, high-precision proof point that makes excellence self-evident without boasting.",
+    steps: "1. Zoom Out: State the high-level benefit clearly: 'Our automated intake pipeline is exceptionally reliable.'\n2. Zoom In: Deliver one unassailable micro-proof: 'In 18 months across 42,000 automated runs, it has thrown zero unhandled exceptions and zero false alerts.'\n3. The Anchor: Connect to peace of mind: 'Which means our team is never paged on weekends.'",
+    trap: "The Metric Dump Trap: Listing 15 numbers on a slide instead of one razor-sharp, unforgettable micro-proof.",
+    rb: ["Movie Time", "Simple Sales Stories"], ra: ["Pitch Perfect", "Show and Tell"],
+    deepQ: "Originated from the ad 'At 60 mph, the loudest noise in a Rolls-Royce comes from the electric clock,' how do you construct a 'Rolls Royce Moment' (#50) for a technical system?",
+    deepA: "Replace adjectives like 'robust' or 'world-class' with: (1) Zoom Out (high-level reliability claim), (2) Zoom In (one hyper-specific micro-proof, e.g., '42,000 runs with zero unhandled exceptions'), and (3) The Anchor (human peace of mind)."
+  },
+  {
+    num: "#51", name: "Show and Tell", tagline: "The Physical Artifact", cat: "Style", col: "#e11d48",
+    diag: "My process diagrams look too academic, detached, and difficult for non-technical stakeholders to grasp.",
+    conc: "Pairing an abstract architectural concept with a concrete, inspectable real-world artifact.",
+    steps: "1. Show: Display the single raw artifact (a screenshot of the messy 14-tab tracking spreadsheet, a photo of whiteboard chaos, or an actual error ticket).\n2. Tell: Explain the systemic impact: 'This single highlighted cell represents 4 hours of redundant manual reconciliation every Tuesday.'",
+    trap: "The Complex Diagram Trap: Showing a massive multi-layered architecture diagram that takes 10 minutes just to explain the legend.",
+    rb: ["Five Ts", "Data Detective"], ra: ["Cut the Crap", "Down to Business"],
+    deepQ: "Why does showing a single highlighted cell in a messy spreadsheet beat a comprehensive architecture diagram in 'Show and Tell' (#51)?",
+    deepA: "Multi-layered architecture diagrams trigger 'The Complex Diagram Trap' and cognitive overload. A raw, tangible artifact ('Show') paired with its exact weekly operational cost ('Tell') makes abstract friction immediately real."
+  },
+  {
+    num: "#52", name: "Cut the Crap", tagline: "The Plain English Filter", cat: "Style", col: "#e11d48",
+    diag: "My writing sounds defensive, bureaucratic, and weighed down by corporate jargon.",
+    conc: "Plain language signals competence and authority; jargon signals insecurity and deflection.",
+    steps: "1. Kill Zombie Nouns (Nominalizations): Replace 'We conducted an implementation of the protocol' with 'We implemented the protocol.'\n2. Enforce Active Voice: Replace 'Discrepancies were observed' with 'We found errors.'\n3. Ban Empty Buzzwords: Delete synergy, holistic, robust, paradigm, and leverage unless mathematically defined.",
+    trap: "The Corporate Mask Trap: Believing multisyllabic vocabulary makes you sound more executive. True executives speak plainly.",
+    rb: ["Show and Tell", "K.I.S.S."], ra: ["Vivid Words", "Pitch Perfect"],
+    deepQ: "What are the 3 editing passes of 'Cut the Crap' (#52)? Apply them to: 'A utilization assessment of holistic synergies was conducted.'",
+    deepA: "(1) Kill Zombie Nouns (nominalizations), (2) Enforce Active Voice, (3) Ban Empty Buzzwords. Rewritten: 'We tested how the two teams work together.'"
+  },
+  {
+    num: "#53", name: "Abstraction Ladder", tagline: "Climbing Rungs of Detail", cat: "Style", col: "#e11d48",
+    diag: "I am stuck either too high in high-level strategy or too deep in floor-level code.",
+    conc: "Moving smoothly between strategic vision and floor execution to keep both executives and engineers aligned.",
+    steps: "1. Top Rung (Strategic Impact): Enterprise compliance readiness, risk exposure, operational resilience.\n2. Middle Rung (Workflows & Systems): Automated pipelines, intake triage, exception queues.\n3. Bottom Rung (Concrete Actions): An analyst logging in at 8:05 AM and reviewing an unmapped ID.\n➔ Rule: Never stay on one rung for more than two sentences without stepping up or down.",
+    trap: "The Stratosphere Trap: Staying parked at the top rung with high-level buzzwords, leaving the audience wondering how it actually works.",
+    rb: ["Curiosity Gap", "That Reminds Me"], ra: ["Show and Tell", "Down to Business"],
+    deepQ: "What is the 'Two-Sentence Rule' of the 'Abstraction Ladder' (#53), and what are its 3 rungs?",
+    deepA: "The 3 rungs are Top (Strategic Impact), Middle (Workflows & Systems), and Bottom (Concrete Floor Actions). Rule: Never stay on a single rung for more than two sentences without stepping up or down to connect vision to reality."
+  },
+  {
+    num: "#54", name: "That Reminds Me", tagline: "The Analogy Bridge", cat: "Style", col: "#e11d48",
+    diag: "I am trying to explain a complex technical system to non-technical stakeholders and they are completely lost.",
+    conc: "Building an analogy bridge from a familiar mechanical system to an unfamiliar technical architecture.",
+    steps: "1. Unfamiliar System: Asynchronous event-driven architecture.\n2. Familiar World: A busy restaurant kitchen ticket wheel.\n3. The Mapping: 'Instead of the waiter standing by the stove waiting for an egg to fry, they pin the ticket to the wheel and serve the next table.'\n4. Step Off the Bridge: Transition directly into the operational software.",
+    trap: "The Stretched Bridge Trap: Pushing the analogy so far that its technical logic breaks down under scrutiny. Use it to establish intuition, then step off.",
+    rb: ["What's It About?"], ra: ["Abstraction Ladder", "Show and Tell"],
+    deepQ: "Why is Step 4 ('Step Off the Bridge') critical when using an analogy in 'That Reminds Me' (#54)?",
+    deepA: "Every analogy eventually breaks down if pushed too far ('The Stretched Bridge Trap'). Use the familiar world (e.g., restaurant ticket wheel) only to establish instant mechanical intuition, then immediately step off into the real system."
+  },
+  {
+    num: "#55", name: "Show Your Working", tagline: "The Margin Notes of Rigor", cat: "Style", col: "#e11d48",
+    diag: "Stakeholders doubt our final recommendations because they haven't seen the calculations behind them.",
+    conc: "In high-stakes proposals, sharing the margin work, calculations, and stress tests proves thoroughness.",
+    steps: "1. Raw Inputs: State baseline sources and acknowledge known data collection limits upfront.\n2. Discarded Models: Share two alternative models tested and abandoned under stress testing.\n3. Sensitivity Range: Provide realistic confidence bands instead of an overconfident single number.",
+    trap: "The Data Vomit Trap: Dumping hundreds of raw calculation rows instead of focusing on key decision milestones.",
+    rb: ["Data Detective", "No Easy Way"], ra: ["Trust Me I'm an Expert", "Down to Business"],
+    deepQ: "How do you 'Show Your Working' (#55) to skeptical analysts without falling into 'The Data Vomit Trap'?",
+    deepA: "Instead of dumping raw spreadsheets, present a structured 3-part summary: (1) Raw Inputs & known data limits, (2) Two Discarded Models that failed stress testing, and (3) A Sensitivity Range (confidence band) rather than a single point estimate."
+  },
+  {
+    num: "#56", name: "Happy Endings", tagline: "The Concrete Future State", cat: "Style", col: "#e11d48",
+    diag: "We established strong urgency, but the team now feels overwhelmed and lacks motivation to start.",
+    conc: "A concrete, three-dimensional picture of daily work once the proposal is fully adopted.",
+    steps: "1. The Numbers: Quantified metrics achieved (zero audit flags, 35% time back).\n2. The Daily Routine: What does a standard Tuesday morning look like without manual firefighting?\n3. The Team Culture: How morale, pride, and focus improve across the department.",
+    trap: "The Financial-Only Trap: Framing success purely around company profit while ignoring day-to-day human relief for the workers.",
+    rb: ["Man in a Hole", "Drive, Drag, Dread"], ra: ["Pitch Perfect", "First Word, Last Word"],
+    deepQ: "Why do frontline workers tune out when leadership describes a project's 'Happy Ending' (#56) purely in terms of company revenue?",
+    deepA: "That is 'The Financial-Only Trap'. To motivate the people doing the work, a Happy Ending must paint three dimensions: (1) The Numbers, (2) The Daily Routine (a Tuesday morning without firefighting), and (3) Team Culture/relief."
+  },
+  {
+    num: "#57", name: "Vivid Words", tagline: "Sensory Language", cat: "Style", col: "#e11d48",
+    diag: "My language feels abstract and slippery; listeners forget what I said 10 minutes later.",
+    conc: "Concrete words register in sensory brain regions; abstract corporate verbs slip from memory.",
+    steps: "1. Physicality Test: Can you point to it in a room? Can you drop it on your foot?\n2. Replace abstract jargon: 'The processing queue backed up like a five-mile traffic jam on the interstate.'\n3. Swap passive state verbs (is, have) for physical action verbs (cut, block, weld, choke, anchor).",
+    trap: "The Purple Prose Trap: Adding poetic adjectives instead of choosing strong, physical action verbs.",
+    rb: ["Cut the Crap"], ra: ["Show and Tell", "Movie Time"],
+    deepQ: "What is 'The Physicality Test' in 'Vivid Words' (#57), and why should you target verbs over adjectives?",
+    deepA: "The Physicality Test asks: 'Can you point to it or drop it on your foot?' Targeting physical action verbs (cut, choke, weld, anchor) activates sensory memory, whereas piling on flowery adjectives falls into 'The Purple Prose Trap'."
+  },
+  {
+    num: "#58", name: "Thought Bubble", tagline: "The Polite vs. Real Contrast", cat: "Style", col: "#e11d48",
+    diag: "The meeting is bogged down in polite corporate diplomacy while everyone avoids the elephant in the room.",
+    conc: "Surfacing the unspoken thought bubble cuts through pretense and commands immediate attention.",
+    steps: "1. Speech Bubble (What was said): 'The alignment meeting yielded opportunities for constructive cross-functional synergy.'\n2. Thought Bubble (What was thought): 'We spent two hours in a windowless room and nobody knows who actually owns the deliverable.'\n3. Pivot: Show how your initiative directly solves the unspoken thought bubble.",
+    trap: "The Aggression Trap: Using the thought bubble to launch personal attacks. It must voice widely shared, relatable systemic frustrations.",
+    rb: ["Good & Evil"], ra: ["Hero & Guide", "Story Listening"],
+    deepQ: "How do you use 'Thought Bubble' (#58) to cut through corporate politeness without sounding hostile?",
+    deepA: "Contrast the polite 'Speech Bubble' ('We had a constructive synergy session') with the shared systemic 'Thought Bubble' ('Nobody knows who owns the deliverable'), then immediately pivot to how your proposal fixes that exact ambiguity."
+  },
+  {
+    num: "#59", name: "Story Icons", tagline: "The Visual Motif", cat: "Style", col: "#e11d48",
+    diag: "Audiences forget 90% of presentation slides within 48 hours.",
+    conc: "A recurring physical anchor or visual symbol that instantly encapsulates the theme of an entire project.",
+    steps: "1. Choose an icon: A photo of a printed 3-inch manual audit binder, a broken stopwatch, or a single green power button.\n2. Introduce it in the opening hook.\n3. Reference it during the turning point.\n4. Show it resolved at the final ask.",
+    trap: "The Clip-Art Trap: Using generic corporate clip-art icons (handshakes, lightbulbs) that carry zero emotional or operational meaning.",
+    rb: ["Vivid Words", "Show and Tell"], ra: ["First Word, Last Word"],
+    deepQ: "What makes an effective 'Story Icon' (#59), and at which 3 points in a presentation should it appear?",
+    deepA: "It must be a specific operational object (e.g., a 3-inch audit binder, not generic lightbulb clip-art) introduced in (1) the Opening Hook, referenced at (2) the Turning Point, and shown resolved at (3) the Final Ask."
+  },
+  {
+    num: "#60", name: "Goldilocks (Rule of Three)", tagline: "Calibrating the Choice", cat: "Style", col: "#e11d48",
+    diag: "Stakeholders reject our single proposal because it feels like an ultimatum.",
+    conc: "Audiences resist single options and distrust binary choices. Frame options as: Too Hot, Too Cold, and Just Right.",
+    steps: "1. Option A (Too Cold - Do Nothing): Low immediate spend, but compounds risk, builds tech debt, and leads to system failure.\n2. Option B (Too Hot - Enterprise Re-platform): Perfect theoretical purity, but exorbitant CapEx and multi-year disruption.\n3. Option C (Just Right - Targeted Modular Upgrade): Solves acute bottleneck, delivers ROI in 60 days, preserves optionality.",
+    trap: "The Strawman Trap: Making Options A and B so absurdly unrealistic that the presentation feels manipulative.",
+    rb: ["No Easy Way"], ra: ["Down to Business", "Pitch Perfect"],
+    deepQ: "Why do executives resist single-option proposals, and how do you structure 'Goldilocks' (#60) without falling into 'The Strawman Trap'?",
+    deepA: "A single option feels like an ultimatum; two options feel like a dilemma. Present 3 realistic options—Option A (Too Cold: Status Quo/High Risk), Option B (Too Hot: Full Re-platform/High CapEx), and Option C (Just Right: Targeted Modular Fix)—making sure A and B are genuine contenders."
+  },
+  {
+    num: "#61", name: "Emotional Arc", tagline: "The Waveform of Tension", cat: "Style", col: "#e11d48",
+    diag: "My presentation has a flat emotional temperature, causing audience attention to drift.",
+    conc: "Modulating psychological tension by alternating between friction and relief to keep attention sharp.",
+    steps: "1. Status Quo (Comfort): Establish baseline room temperature.\n2. Friction (Spike): Introduce the operational breakdown or audit exposure.\n3. Complication (Sustained Tension): Show why easy workarounds failed (No Easy Way).\n4. Breakthrough (Catharsis): Deliver the architectural fix and operational peace of mind.",
+    trap: "The Panic Trap: Keeping tension at maximum the entire time, which burns out the audience and leads to emotional fatigue.",
+    rb: ["Five Ts", "The Story Spine"], ra: ["Man in a Hole", "Happy Endings"],
+    deepQ: "What happens if a presentation stays at maximum alarm from slide 1 to slide 20, and how does 'Emotional Arc' (#61) modulate it?",
+    deepA: "Non-stop alarm triggers 'The Panic Trap' and audience numbness. Modulate tension across 4 waves: Status Quo (Comfort) ➔ Friction (Spike) ➔ Complication (Sustained Tension) ➔ Breakthrough (Catharsis/Relief)."
+  },
+  {
+    num: "#62", name: "K.I.S.S. (Keep It Simple)", tagline: "Radical Compression", cat: "Style", col: "#e11d48",
+    diag: "Our operational policy is 20 pages long and nobody on the floor actually follows it.",
+    conc: "Radical cognitive compression to reduce complex operational policies into memorable heuristics.",
+    steps: "1. The Memo: 500-word detailed policy explanation.\n2. The Pitch: 3 bullet points.\n3. The Rule: 1 imperative sentence ('Never commit code on Friday afternoon without automated unit tests passing').\n4. The 3-Word Heuristic: 'Test before merge' or 'Inspect what's expected.'",
+    trap: "The Triviality Trap: Stripping away so much context that the rule becomes a vague, meaningless platitude.",
+    rb: ["Abstraction Ladder"], ra: ["Cut the Crap", "Vivid Words"],
+    deepQ: "What is the 4-stage compression funnel in 'K.I.S.S.' (#62) for turning a 20-page SOP into floor-level behavior?",
+    deepA: "Compress from: (1) The 500-word Memo ➔ (2) The 3-bullet Pitch ➔ (3) The 1-sentence imperative Rule ➔ (4) The 3-Word Heuristic (e.g., 'Test before merge')."
+  },
+
+  // --- ORGANISE (6) ---
+  {
+    num: "#63", name: "Audience Profile", tagline: "Stakes, Feelings & Fears", cat: "Organise", col: "#7c3aed",
+    diag: "I am preparing a presentation without knowing the personal priorities of the stakeholders in the room.",
+    conc: "You cannot tell a compelling story until you map who is in the room across what they know, feel, and fear.",
+    steps: "1. Map Gain: Identify what they stand to gain if this succeeds (promotion, time back, budget relief).\n2. Map Risk: Identify what they risk if this fails (audit scrutiny, wasted spend, public blame).\n3. Identify Skepticism: Pinpoint their default hesitation or past negative experience.\n4. Write Transformation Sentence: 'Right now they think/feel: [Current State]. By the end of this talk, they must think/feel: [Target State].'",
+    trap: "The Demographics Trap: Focusing on corporate titles instead of personal professional anxieties and incentives.",
+    rb: ["Story Listening", "Audience Empathy Map"], ra: ["Hero & Guide", "Drive, Drag, Dread", "Pitch Perfect"],
+    deepQ: "What is the 'Transformation Sentence' in Step 4 of 'Audience Profile' (#63), and why are job titles insufficient?",
+    deepA: "Job titles fall into 'The Demographics Trap'. You must map personal Gain, Risk, and Skepticism, then write: 'Right now they think/feel [Current State]; by the end of this talk, they must think/feel [Target State].'"
+  },
+  {
+    num: "#64", name: "Story Board", tagline: "Tactile Narrative Sequencing", cat: "Organise", col: "#7c3aed",
+    diag: "I am spending hours formatting slides before locking in the core narrative arc.",
+    conc: "Visual sequencing using sticky notes or index cards to nail narrative flow before opening slide software.",
+    steps: "1. Prep 6 Cards: Lay out 6 blank physical index cards on a table.\n2. Record Beats: On each card, write only Action (What happens?), Emotion (How does the audience feel?), and Proof (What artifact is shown?).\n3. Run the Shuffle Test: Swap cards 3 and 4. If the overall logic still holds together, your narrative lacks true causality. Rewrite until each card logically demands the next.\n4. Slide Translation: Only after passing the shuffle test, translate cards into slides.",
+    trap: "The PowerPoint Trap: Opening slide software immediately, which forces you to think about font sizes and layouts instead of story logic.",
+    rb: ["The Story Spine", "Five Ts"], ra: ["Pitch Perfect", "Down to Business"],
+    deepQ: "What are the 3 items written on each index card in 'Story Board' (#64), and how does 'The Shuffle Test' work?",
+    deepA: "Each of the 6 cards records: Action, Emotion, and Proof. In The Shuffle Test, you swap cards 3 and 4—if the presentation still makes sense, your story is a flat list ('and then') rather than causal ('because of that') and must be rewritten before opening PowerPoint."
+  },
+  {
+    num: "#65", name: "Story Listening", tagline: "Qualitative Narrative Discovery", cat: "Organise", col: "#7c3aed",
+    diag: "Formal surveys are returning shallow, polite responses that miss our real operational issues.",
+    conc: "Qualitative discovery using open narrative prompts to uncover unvarnished work realities.",
+    steps: "1. Prompt 1: 'Tell me about the moment you realized the current system wasn't working anymore.'\n2. Prompt 2: 'Walk me through the most frustrating week you had on this project last year.'\n3. Prompt 3: 'What is the unofficial workaround everyone on the team uses but nobody writes in the documentation?'",
+    trap: "The Interruption Trap: Interrupting with solutions or defensiveness while stakeholders are sharing their pain.",
+    rb: ["Icebreaker"], ra: ["Story Bank", "Audience Profile", "Character Flaws"],
+    deepQ: "Why do multiple-choice surveys miss root operational problems, and what 3 narrative prompts unlock them in 'Story Listening' (#65)?",
+    deepA: "Surveys invite polite surface answers. Instead ask: (1) 'Tell me about the moment you realized the system wasn't working', (2) 'Walk me through your most frustrating week', and (3) 'What is the unofficial workaround everyone uses but nobody documents?'"
+  },
+  {
+    num: "#66", name: "Order & Priority", tagline: "The 3-Bucket Filter", cat: "Organise", col: "#7c3aed",
+    diag: "My agenda lists seven equal priorities, which signals to leadership that I have no clear focus.",
+    conc: "Filtering content by narrative urgency rather than chronological project milestones.",
+    steps: "1. Must Know (The Spine): The central conflict, resolution, and required decision. (Deliver in opening 5 minutes).\n2. Should Know (The Context): Supporting metrics, secondary operational impacts, test validations. (Hold for discussion).\n3. Could Know (The Appendix): Database schemas, query scripts, raw logs. (Reference docs).",
+    trap: "The Chronological Agenda Trap: Organizing slides by project phase dates rather than by strategic decision urgency.",
+    rb: ["The Story Spine", "Story Board"], ra: ["Pitch Perfect", "Down to Business"],
+    deepQ: "How does 'Order & Priority' (#66) triage a bloated 35-slide technical deck into 3 buckets?",
+    deepA: "(1) Must Know (The Spine: core conflict, resolution, and decision—delivered in the first 5 minutes), (2) Should Know (supporting metrics/validations—held for Q&A discussion), and (3) Could Know (raw schemas/logs—moved to appendix docs)."
+  },
+  {
+    num: "#67", name: "Story Bank", tagline: "The Narrative Repository", cat: "Organise", col: "#7c3aed",
+    diag: "I need a case study for an executive deck tomorrow, but I cannot recall specific examples from last quarter.",
+    conc: "A structured repository for logging operational incidents before they fade from organizational memory.",
+    steps: "1. Incident: What happened? ('API threw 400 errors during client demo').\n2. Emotion / Friction: What did it feel like? (Panic, confusion, quiet pride).\n3. Insight: What was the systemic lesson learned?\n4. Tags: Categorize for reuse (#RiskManagement, #ClientTrust, #Architecture).",
+    trap: "The Cold Bullet Trap: Logging incidents as dry factual summaries without capturing the human friction and emotional stakes.",
+    rb: ["Story Listening", "Five Ws"], ra: ["Audience Profile", "The Story Spine"],
+    deepQ: "What 4 fields must be logged in a 'Story Bank' (#67) entry so it doesn't fall into 'The Cold Bullet Trap'?",
+    deepA: "(1) Incident (what happened specifically), (2) Emotion/Friction (what it felt like on the floor), (3) Insight (the systemic lesson), and (4) Retrieval Tags (e.g., #ClientTrust, #Architecture)."
+  },
+  {
+    num: "#68", name: "Audience Empathy Map", tagline: "The Deep Psychological Matrix", cat: "Organise", col: "#7c3aed",
+    diag: "We need an expanded psychological profile of skeptical budget gatekeepers and cross-functional partners.",
+    conc: "Mapping the external reality and internal emotional tensions of key stakeholders before designing a proposal.",
+    steps: "1. Says: What are they publicly mandated to state in corporate meetings?\n2. Does: How do they actually behave under pressure? (Freeze budgets, defend legacy tools, escalate to VPs).\n3. Thinks & Feels: Silent doubts ('This is another shiny toy that will create more work for my team').\n4. Pains & Gains: Primary operational headache to eliminate vs. outcome that earns them promotion.",
+    trap: "The Idealized Audience Trap: Filling out the map based on who you wish your stakeholders were, rather than who they actually are under quarterly pressure.",
+    rb: ["Story Listening"], ra: ["Audience Profile", "Drive, Drag, Dread"],
+    deepQ: "Why is contrasting 'Says' vs. 'Does' and 'Thinks & Feels' essential in the 'Audience Empathy Map' (#68)?",
+    deepA: "In corporate meetings, stakeholders publicly state ('Says') polite alignment ('We support innovation'), while under pressure ('Does' / 'Thinks') they freeze budgets out of fear that a new tool will create extra work for their team."
+  },
+
+  // --- WORKSHOPS (3) ---
+  {
+    num: "#W1", name: "Story Clinic", tagline: "15-Minute Peer Review Protocol", cat: "Workshops", col: "#0d9488",
+    diag: "Our presentation reviews devolve into subjective arguments about slide layouts and fonts rather than story logic.",
+    conc: "A structured, 15-minute peer review protocol designed to critique presentation mechanics without crushing the presenter's confidence.",
+    steps: "1. Min 0–5: Presenter pitches without interruption.\n2. Min 5–8: Reviewers evaluate in complete silence against 3 checks:\n   • The Hook: Did I know within 30s why I should care? (Fix: First Word, Last Word / Why It Matters)\n   • The Friction: Did the problem feel real? (Fix: No Easy Way / Man in a Hole)\n   • The Proof: Did I believe the claim? (Fix: Rolls Royce Moment / Show and Tell)\n3. Min 8–15: Reviewers hand over 1–2 specific tactic cards as actionable remedies.",
+    trap: "The Rewriting Trap: Reviewers trying to rewrite the presentation into their own style rather than diagnosing where the narrative lost momentum.",
+    rb: ["Pitch Perfect", "Story Board"], ra: ["Cut the Crap", "First Word, Last Word"],
+    deepQ: "What are the 3 silent diagnostic checks evaluated during minutes 5–8 of a 'Story Clinic' (#W1) peer review?",
+    deepA: "(1) The Hook (Did I know within 30s why I should care?), (2) The Friction (Did the struggle feel real?), and (3) The Proof (Did I believe the claim with concrete evidence?)."
+  },
+  {
+    num: "#W2", name: "60-Minute Story Sprint", tagline: "Blank Page to Pitch in One Hour", cat: "Workshops", col: "#0d9488",
+    diag: "The team is paralyzed by presentation prep and has spent 3 weeks debating what to say.",
+    conc: "A timeboxed workshop format that takes a technical team from zero narrative to a working presentation draft in exactly one hour.",
+    steps: "1. Phase 1: Excavation (15m): Silent sticky notes answering Story Listening ('What broke?') and Why It Matters ('What did it cost?').\n2. Phase 2: Cast & Conflict (10m): Cast Hero & Guide and define the Three Great Conflicts.\n3. Phase 3: The Spine (20m): Fill out the 7 lines of The Story Spine on a whiteboard; attach one Show and Tell artifact.\n4. Phase 4: Read-Out (15m): One person reads the outline aloud against a 120-second timer; trim points where attention drifts.",
+    trap: "The Software Trap: Opening PowerPoint or Google Slides during the sprint. All work must be on physical paper, sticky notes, or a virtual whiteboard.",
+    rb: ["Story Listening", "Why It Matters"], ra: ["Story Board", "Pitch Perfect"],
+    deepQ: "Break down the 4 timeboxed phases of the '60-Minute Story Sprint' (#W2) and why slide software is banned.",
+    deepA: "Phase 1: Excavation (15m) ➔ Phase 2: Cast & Conflict (10m) ➔ Phase 3: The Spine + Artifact (20m) ➔ Phase 4: 120-Second Read-Out (15m). Slide software is banned ('The Software Trap') so the team focuses 100% on causal story logic rather than formatting."
+  },
+  {
+    num: "#W3", name: "Silent Storyboarding", tagline: "The Ego-Free Alignment Sprint", cat: "Workshops", col: "#0d9488",
+    diag: "The most senior or extroverted person in the room is dominating presentation design.",
+    conc: "A collaborative visual planning exercise that levels the playing field by drafting narrative beats in silence.",
+    steps: "1. Solo Sketching (8m): Every participant folds a paper into 6 boxes and silently sketches their version of the pitch (Status Quo, Friction, Failed Workaround, Breakthrough, Evidence, Ask).\n2. Silent Gallery Walk (5m): Tape sheets to the wall; team silently places sticky dots on the clearest transitions and proof points.\n3. Assembly (10m): Combine highest-voted boxes into a single unified narrative flow.",
+    trap: "The Artist Trap: Worrying about drawing skill. Box sketches should be simple stick figures, arrows, and key metrics.",
+    rb: ["Story Board"], ra: ["Pitch Perfect"],
+    deepQ: "How does 'Silent Storyboarding' (#W3) neutralize the HiPPO effect (Highest Paid Person's Opinion) in a group workshop?",
+    deepA: "Everyone sketches their 6-box pitch in silence (8m) and votes anonymously with sticky dots during a Silent Gallery Walk (5m) before anyone speaks, ensuring the best transitions and proof points win on merit."
+  }
+];
+
+// ================= SPACED REPETITION (SM-2) & STORAGE ENGINE =================
+const SRS_STORAGE_KEY = 'storyteller_tactics_srs_v2';
+const NOTES_STORAGE_KEY = 'storyteller_tactics_notes_v2';
+
+let srsState = {};     // { [cardNum]: { interval, reps, ease, due, status, lastReviewed } }
+let userNotes = {};    // { [cardNum]: "string" }
+let stepChecks = {};   // { [cardNum]: { [stepIndex]: boolean } }
+
+let activePool = [...rawDeck];
+let currentIndex = 0;
+let isFlipped = false;
+let isBlindMode = false;
+let activeBackTab = 'steps'; // 'steps' | 'questions'
+
+window.onload = () => {
+  loadPersistedData();
+  updateSRSStatsUI();
+  populateJumpSelect();
+  renderCard();
+  setupKeyboardShortcuts();
+};
+
+function loadPersistedData() {
+  try {
+    const savedSRS = localStorage.getItem(SRS_STORAGE_KEY);
+    if (savedSRS) srsState = JSON.parse(savedSRS);
+  } catch (e) {
+    console.warn('Could not load SRS state:', e);
+  }
+  try {
+    const savedNotes = localStorage.getItem(NOTES_STORAGE_KEY);
+    if (savedNotes) userNotes = JSON.parse(savedNotes);
+  } catch (e) {
+    console.warn('Could not load user notes:', e);
+  }
+}
+
+function saveSRSState() {
+  try {
+    localStorage.setItem(SRS_STORAGE_KEY, JSON.stringify(srsState));
+  } catch (e) {
+    console.warn('Could not save SRS state:', e);
+  }
+}
+
+function getCardSRS(cardNum) {
+  if (!srsState[cardNum]) {
+    return {
+      interval: 0,      // days (0 = new or intraday learning)
+      reps: 0,
+      ease: 2.5,
+      due: 0,           // 0 = unseen/new
+      status: 'new',    // 'new' | 'learning' | 'review' | 'mastered'
+      lastReviewed: null
+    };
+  }
+  return srsState[cardNum];
+}
+
+function isCardDue(cardNum) {
+  const rec = getCardSRS(cardNum);
+  if (rec.status === 'new') return false;
+  return Date.now() >= rec.due;
+}
+
+// Compute preview intervals for the 4 rating buttons
+function computeNextIntervalPreview(cardNum, grade) {
+  const rec = getCardSRS(cardNum);
+  let { interval, reps, ease } = rec;
+
+  if (grade === 1) {
+    return { label: '10m', days: 0.007, nextStatus: 'learning', nextEase: Math.max(1.3, ease - 0.2), nextReps: 0 };
+  }
+  if (grade === 2) {
+    const nextDays = reps === 0 ? 1 : Math.max(1, Math.round(interval * 1.2));
+    return { label: `${nextDays}d`, days: nextDays, nextStatus: nextDays >= 7 ? 'mastered' : 'learning', nextEase: Math.max(1.3, ease - 0.15), nextReps: reps + 1 };
+  }
+  if (grade === 3) {
+    const nextDays = reps === 0 ? 1 : (reps === 1 ? 3 : Math.max(2, Math.round(interval * ease)));
+    return { label: `${nextDays}d`, days: nextDays, nextStatus: nextDays >= 7 ? 'mastered' : 'review', nextEase: ease, nextReps: reps + 1 };
+  }
+  if (grade === 4) {
+    const nextDays = reps === 0 ? 4 : (reps === 1 ? 7 : Math.max(4, Math.round(interval * ease * 1.3)));
+    return { label: `${nextDays}d`, days: nextDays, nextStatus: nextDays >= 7 ? 'mastered' : 'review', nextEase: ease + 0.15, nextReps: reps + 1 };
+  }
+}
+
+function rateCard(grade) {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  const calc = computeNextIntervalPreview(card.num, grade);
+  const now = Date.now();
+  const msPerDay = 86400 * 1000;
+
+  srsState[card.num] = {
+    interval: calc.days,
+    reps: calc.nextReps,
+    ease: Number(calc.nextEase.toFixed(2)),
+    due: Math.round(now + calc.days * msPerDay),
+    status: calc.nextStatus,
+    lastReviewed: now
+  };
+
+  saveSRSState();
+  updateSRSStatsUI();
+
+  // If user is in a filtered SRS view (like DUE), re-evaluate or advance smoothly
+  const srsFilterVal = document.getElementById('srs-filter').value;
+  if (srsFilterVal !== 'ALL') {
+    const prevCardNum = card.num;
+    applyFilters(false);
+    if (activePool.length === 0) {
+      renderEmptyState();
+      return;
+    }
+    // Keep index in bounds
+    currentIndex = currentIndex % activePool.length;
+    isFlipped = false;
+    setTimeout(renderCard, 80);
+  } else {
+    nextCard();
+  }
+}
+
+function updateSRSStatsUI() {
+  let dueCount = 0;
+  let learningCount = 0;
+  let newCount = 0;
+  let masteredCount = 0;
+  const now = Date.now();
+
+  rawDeck.forEach(c => {
+    const r = getCardSRS(c.num);
+    if (r.status === 'new') {
+      newCount++;
+    } else {
+      if (now >= r.due) dueCount++;
+      if (r.status === 'learning') learningCount++;
+      if (r.status === 'mastered') masteredCount++;
+    }
+  });
+
+  document.getElementById('stat-due').innerText = dueCount;
+  document.getElementById('stat-learning').innerText = learningCount;
+  document.getElementById('stat-new').innerText = newCount;
+  document.getElementById('stat-mastered').innerText = masteredCount;
+
+  // Weighted Mastery calculation (Mastered = 1.0, Review = 0.5, Learning = 0.2)
+  let scoreSum = 0;
+  rawDeck.forEach(c => {
+    const r = getCardSRS(c.num);
+    if (r.status === 'mastered') scoreSum += 1;
+    else if (r.status === 'review') scoreSum += 0.5;
+    else if (r.status === 'learning') scoreSum += 0.2;
+  });
+  const pct = Math.round((scoreSum / rawDeck.length) * 100);
+  document.getElementById('stat-pct').innerText = `${pct}%`;
+  document.getElementById('mastery-bar').style.width = `${pct}%`;
+}
+
+function resetSRSProgress() {
+  if (!confirm('Reset all Spaced Repetition intervals and mastery stats for all 81 cards? (Your personal card notes will be kept.)')) return;
+  srsState = {};
+  saveSRSState();
+  updateSRSStatsUI();
+  applyFilters(true);
+}
+
+// ================= RENDERING & UI LOGIC =================
+function populateJumpSelect() {
+  const sel = document.getElementById('card-select');
+  sel.innerHTML = '';
+  activePool.forEach((card, idx) => {
+    const opt = document.createElement('option');
+    opt.value = idx;
+    const r = getCardSRS(card.num);
+    const badge = r.status === 'mastered' ? '🏆 ' : (isCardDue(card.num) ? '🔥 ' : '');
+    opt.innerText = `${badge}${card.num} ${card.name}`;
+    sel.appendChild(opt);
+  });
+  if (activePool.length > 0) {
+    sel.value = currentIndex;
+  }
+}
+
+function formatDueRelative(dueTimestamp) {
+  if (!dueTimestamp) return 'Not yet studied';
+  const diffMs = dueTimestamp - Date.now();
+  if (diffMs <= 0) return 'Due now!';
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 60) return `Due in ${mins}m`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 36) return `Due in ${hrs}h`;
+  const days = Math.round(hrs / 24);
+  return `Due in ${days}d`;
+}
+
+function renderCard() {
+  if (activePool.length === 0) {
+    renderEmptyState();
+    return;
+  }
+
+  const card = activePool[currentIndex];
+  const srs = getCardSRS(card.num);
+  const inner = document.getElementById('flashcard-inner');
+
+  if (isFlipped) {
+    inner.classList.add('rotate-y-180');
+  } else {
+    inner.classList.remove('rotate-y-180');
+  }
+
+  document.getElementById('deck-counter').innerText = `Card ${currentIndex + 1} of ${activePool.length}`;
+  const sel = document.getElementById('card-select');
+  if (sel.options.length === activePool.length) {
+    sel.value = currentIndex;
+  }
+
+  // SRS Badge & Meta
+  const badgeEl = document.getElementById('card-srs-badge');
+  const metaEl = document.getElementById('card-srs-meta');
+  const dueText = formatDueRelative(srs.due);
+
+  if (srs.status === 'new') {
+    badgeEl.innerText = 'New';
+    badgeEl.className = 'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-700';
+    metaEl.innerText = 'Unseen card';
+  } else if (srs.status === 'learning') {
+    badgeEl.innerText = isCardDue(card.num) ? 'Due • Learning' : 'Learning';
+    badgeEl.className = 'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900';
+    metaEl.innerText = `${dueText} • EF ${srs.ease} • Streak ${srs.reps}`;
+  } else if (srs.status === 'review') {
+    badgeEl.innerText = isCardDue(card.num) ? 'Due • Review' : 'Review';
+    badgeEl.className = 'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-200 text-blue-900';
+    metaEl.innerText = `${dueText} • EF ${srs.ease} • Streak ${srs.reps}`;
+  } else if (srs.status === 'mastered') {
+    badgeEl.innerText = isCardDue(card.num) ? 'Due • Mastered' : '🏆 Mastered';
+    badgeEl.className = 'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900';
+    metaEl.innerText = `${dueText} • EF ${srs.ease} • Streak ${srs.reps}`;
+  }
+
+  // Blind Mode Handling on Front
+  const identityBlock = document.getElementById('front-identity-block');
+  const blindMask = document.getElementById('front-blind-mask');
+  if (isBlindMode) {
+    identityBlock.classList.add('hidden');
+    blindMask.classList.remove('hidden');
+  } else {
+    identityBlock.classList.remove('hidden');
+    blindMask.classList.add('hidden');
+  }
+
+  // Front Content
+  document.getElementById('front-category').innerText = card.cat;
+  document.getElementById('front-category').style.backgroundColor = card.col;
+  document.getElementById('front-due-status').innerText = srs.status === 'new' ? '' : dueText;
+  document.getElementById('front-number').innerText = card.num;
+  document.getElementById('front-name').innerText = card.name;
+  document.getElementById('front-tagline').innerText = card.tagline;
+  document.getElementById('front-concept').innerText = card.conc;
+  document.getElementById('front-diagnostic').innerText = `"${card.diag}"`;
+  document.getElementById('front-deep-question').innerText = card.deepQ;
+
+  // Back Header & Execution Tab Content
+  document.getElementById('back-name').innerText = card.name;
+  document.getElementById('back-number').innerText = card.num;
+  document.getElementById('back-category-dot').style.backgroundColor = card.col;
+  document.getElementById('back-steps-content').innerText = card.steps;
+  document.getElementById('back-trap-content').innerText = card.trap;
+
+  const createChip = (name) => {
+    return `<button onclick="jumpToCardByName('${name.replace(/'/g, "\\'")}'); event.stopPropagation();" 
+      class="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 hover:bg-amber-100 hover:text-amber-900 border border-slate-300 text-slate-700 transition cursor-pointer">
+      ${name}
+    </button>`;
+  };
+
+  const beforeContainer = document.getElementById('back-before-chips');
+  beforeContainer.innerHTML = card.rb && card.rb.length 
+    ? card.rb.map(createChip).join('') 
+    : '<span class="text-[11px] text-slate-400 italic">None</span>';
+
+  const afterContainer = document.getElementById('back-after-chips');
+  afterContainer.innerHTML = card.ra && card.ra.length 
+    ? card.ra.map(createChip).join('') 
+    : '<span class="text-[11px] text-slate-400 italic">None</span>';
+
+  // Render In-Depth Questions Tab (4-Layer Active Recall Suite)
+  renderDeepQuestionsTab(card);
+
+  // Update SRS interval labels on the 4 buttons
+  for (let g = 1; g <= 4; g++) {
+    const preview = computeNextIntervalPreview(card.num, g);
+    document.getElementById(`int-btn-${g}`).innerText = preview.label;
+  }
+
+  // Ensure active back tab visibility
+  applyBackTabUI();
+}
+
+function renderDeepQuestionsTab(card) {
+  // Q1: Bespoke Applied Scenario Challenge
+  document.getElementById('q-scenario-prompt').innerText = card.deepQ;
+  document.getElementById('q-scenario-answer').innerText = card.deepA;
+
+  // Q2: Interactive Step-by-Step Checklist
+  const rawLines = card.steps.split('\n').map(s => s.trim()).filter(Boolean);
+  const checklistEl = document.getElementById('q-steps-checklist');
+  if (!stepChecks[card.num]) stepChecks[card.num] = {};
+
+  checklistEl.innerHTML = rawLines.map((line, idx) => {
+    const checked = stepChecks[card.num][idx] ? 'checked' : '';
+    return `
+      <label class="flex items-start gap-2 p-1.5 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer text-xs text-slate-800">
+        <input type="checkbox" ${checked} onchange="toggleStepCheck('${card.num}', ${idx})" class="mt-0.5 rounded text-amber-600 focus:ring-amber-500">
+        <span class="leading-snug">${line}</span>
+      </label>
+    `;
+  }).join('');
+  updateStepScoreUI(card.num, rawLines.length);
+
+  // Q3: Trap & Failure Mode Probe
+  const trapParts = card.trap.split(':');
+  const trapName = trapParts[0] || 'The Common Trap';
+  document.getElementById('q-trap-prompt').innerText =
+    `When executing "${card.name}", how can your team unintentionally fall into "${trapName}", and what specific guardrail prevents it?`;
+  document.getElementById('q-trap-answer').innerText = card.trap;
+
+  // Q4: Chaining & Personal Workspace Application
+  const beforeStr = card.rb && card.rb.length ? card.rb.join(', ') : 'Initial Discovery';
+  const afterStr = card.ra && card.ra.length ? card.ra.join(', ') : 'Final Delivery';
+  document.getElementById('q-chain-prompt').innerText =
+    `Workflow Chain: [${beforeStr}] ➔ ${card.name} (${card.num}) ➔ [${afterStr}]. Draft your own real-world application of ${card.name} below:`;
+
+  document.getElementById('card-user-note').value = userNotes[card.num] || '';
+}
+
+function toggleStepCheck(cardNum, idx) {
+  if (!stepChecks[cardNum]) stepChecks[cardNum] = {};
+  stepChecks[cardNum][idx] = !stepChecks[cardNum][idx];
+  const card = activePool[currentIndex];
+  const total = card.steps.split('\n').map(s => s.trim()).filter(Boolean).length;
+  updateStepScoreUI(cardNum, total);
+}
+
+function updateStepScoreUI(cardNum, total) {
+  const checks = stepChecks[cardNum] || {};
+  const count = Object.values(checks).filter(Boolean).length;
+  document.getElementById('q-step-score').innerText = `${count}/${total} steps verified`;
+}
+
+function saveUserCardNote() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  const val = document.getElementById('card-user-note').value;
+  userNotes[card.num] = val;
+  try {
+    localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(userNotes));
+    const ind = document.getElementById('note-save-indicator');
+    ind.innerText = '✓ Saved to browser';
+    setTimeout(() => { ind.innerText = 'Auto-saved locally'; }, 1500);
+  } catch (e) {}
+}
+
+function switchBackTab(tabName) {
+  activeBackTab = tabName;
+  applyBackTabUI();
+}
+
+function applyBackTabUI() {
+  const stepsTab = document.getElementById('back-tab-steps');
+  const questionsTab = document.getElementById('back-tab-questions');
+  const btnSteps = document.getElementById('tab-btn-steps');
+  const btnQuestions = document.getElementById('tab-btn-questions');
+
+  if (activeBackTab === 'steps') {
+    stepsTab.classList.remove('hidden');
+    questionsTab.classList.add('hidden');
+    btnSteps.className = 'px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm transition';
+    btnQuestions.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1';
+  } else {
+    stepsTab.classList.add('hidden');
+    questionsTab.classList.remove('hidden');
+    btnSteps.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition';
+    btnQuestions.className = 'px-2.5 py-1 rounded-md bg-white text-indigo-700 shadow-sm transition flex items-center gap-1';
+  }
+}
+
+function openQuestionsDirectly() {
+  activeBackTab = 'questions';
+  if (!isFlipped) {
+    flipCard();
+  } else {
+    applyBackTabUI();
+  }
+}
+
+function toggleBlindMode() {
+  isBlindMode = !isBlindMode;
+  const btn = document.getElementById('blind-mode-btn');
+  const dot = document.getElementById('blind-mode-dot');
+  if (isBlindMode) {
+    btn.className = 'text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-amber-500 bg-amber-100 text-amber-950 transition flex items-center gap-1.5 shadow-sm';
+    dot.className = 'w-2 h-2 rounded-full bg-amber-600 animate-ping';
+  } else {
+    btn.className = 'text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1.5';
+    dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+  }
+  renderCard();
+}
+
+function revealBlindFront(e) {
+  e.stopPropagation();
+  document.getElementById('front-identity-block').classList.remove('hidden');
+  document.getElementById('front-blind-mask').classList.add('hidden');
+}
+
+function handleCardClick(e) {
+  if (!isFlipped) flipCard();
+}
+
+function flipCard() {
+  if (activePool.length === 0) return;
+  isFlipped = !isFlipped;
+  const inner = document.getElementById('flashcard-inner');
+  if (isFlipped) {
+    inner.classList.add('rotate-y-180');
+  } else {
+    inner.classList.remove('rotate-y-180');
+  }
+}
+
+function nextCard() {
+  if (activePool.length === 0) return;
+  isFlipped = false;
+  currentIndex = (currentIndex + 1) % activePool.length;
+  setTimeout(renderCard, 80);
+}
+
+function prevCard() {
+  if (activePool.length === 0) return;
+  isFlipped = false;
+  currentIndex = (currentIndex - 1 + activePool.length) % activePool.length;
+  setTimeout(renderCard, 80);
+}
+
+function shuffleDeck() {
+  if (activePool.length === 0) return;
+  isFlipped = false;
+  activePool.sort(() => Math.random() - 0.5);
+  currentIndex = 0;
+  populateJumpSelect();
+  setTimeout(renderCard, 80);
+}
+
+function jumpToCardByName(cardName) {
+  let targetIdx = rawDeck.findIndex(c => c.name.toLowerCase() === cardName.toLowerCase());
+  if (targetIdx === -1) {
+    targetIdx = rawDeck.findIndex(c => c.name.toLowerCase().includes(cardName.toLowerCase()));
+  }
+
+  if (targetIdx !== -1) {
+    const targetCard = rawDeck[targetIdx];
+    document.getElementById('category-filter').value = 'ALL';
+    document.getElementById('srs-filter').value = 'ALL';
+    document.getElementById('search-input').value = '';
+    activePool = [...rawDeck];
+    populateJumpSelect();
+
+    currentIndex = activePool.findIndex(c => c.name === targetCard.name);
+    isFlipped = false;
+    renderCard();
+  } else {
+    alert(`Card "${cardName}" is not currently found in the registry.`);
+  }
+}
+
+function handleSelectCard() {
+  const sel = document.getElementById('card-select');
+  currentIndex = parseInt(sel.value, 10) || 0;
+  isFlipped = false;
+  renderCard();
+}
+
+function setQuickSRSFilter(mode) {
+  const srsSelect = document.getElementById('srs-filter');
+  srsSelect.value = srsSelect.value === mode ? 'ALL' : mode;
+  handleFilterChange();
+}
+
+function handleFilterChange() {
+  applyFilters(true);
+}
+
+function handleSearch() {
+  applyFilters(true);
+}
+
+function applyFilters(resetIdx = true) {
+  const category = document.getElementById('category-filter').value;
+  const srsMode = document.getElementById('srs-filter').value;
+  const query = document.getElementById('search-input').value.toLowerCase().trim();
+  const now = Date.now();
+
+  isFlipped = false;
+  activePool = rawDeck.filter(card => {
+    const matchesCat = (category === 'ALL') || (card.cat === category);
+    const matchesQuery = !query || 
+      card.name.toLowerCase().includes(query) ||
+      card.num.toLowerCase().includes(query) ||
+      card.tagline.toLowerCase().includes(query) ||
+      card.conc.toLowerCase().includes(query) ||
+      card.diag.toLowerCase().includes(query) ||
+      card.deepQ.toLowerCase().includes(query);
+
+    const rec = getCardSRS(card.num);
+    let matchesSRS = true;
+    if (srsMode === 'DUE') {
+      matchesSRS = (rec.status !== 'new' && now >= rec.due);
+    } else if (srsMode === 'LEARNING') {
+      matchesSRS = (rec.status === 'learning');
+    } else if (srsMode === 'NEW') {
+      matchesSRS = (rec.status === 'new');
+    } else if (srsMode === 'MASTERED') {
+      matchesSRS = (rec.status === 'mastered');
+    }
+
+    return matchesCat && matchesQuery && matchesSRS;
+  });
+
+  // Sort Due queue by most overdue first
+  if (srsMode === 'DUE') {
+    activePool.sort((a, b) => getCardSRS(a.num).due - getCardSRS(b.num).due);
+  }
+
+  if (resetIdx) currentIndex = 0;
+  populateJumpSelect();
+
+  if (activePool.length > 0) {
+    renderCard();
+  } else {
+    renderEmptyState();
+  }
+}
+
+function renderEmptyState() {
+  document.getElementById('deck-counter').innerText = '0 cards match filter';
+  document.getElementById('card-srs-badge').innerText = 'Empty Queue';
+  document.getElementById('card-srs-meta').innerText = '';
+  document.getElementById('front-name').innerText = 'No Cards Match Filter';
+  document.getElementById('front-tagline').innerText = 'Queue Complete or No Search Matches';
+  document.getElementById('front-concept').innerText = 'If you filtered by "Due for Review (SRS)", congratulations—you have cleared all currently due cards! Switch the SRS filter back to "All Cards (81)" or "Unseen / New" to continue studying.';
+  document.getElementById('front-diagnostic').innerText = '"Reset your filter above to keep practicing."';
+  document.getElementById('front-deep-question').innerText = 'No active question.';
+}
+
+function setupKeyboardShortcuts() {
+  window.addEventListener('keydown', (e) => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      flipCard();
+    } else if (e.code === 'ArrowRight' || e.key === 'j') {
+      e.preventDefault();
+      nextCard();
+    } else if (e.code === 'ArrowLeft' || e.key === 'k') {
+      e.preventDefault();
+      prevCard();
+    } else if (e.key === 'q' || e.key === 'Q') {
+      e.preventDefault();
+      openQuestionsDirectly();
+    } else if (e.key === 'b' || e.key === 'B') {
+      e.preventDefault();
+      toggleBlindMode();
+    } else if (['1', '2', '3', '4'].includes(e.key) && isFlipped) {
+      e.preventDefault();
+      rateCard(parseInt(e.key, 10));
+    }
+  });
+}
+</script>
+</body>
+</html>
