@@ -6,60 +6,113 @@
 <title>Storyteller Tactics® - 81-Card SRS & Deep Recall Edition</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  .perspective { perspective: 1200px; }
+  .perspective { perspective: 1400px; }
   .preserve-3d { transform-style: preserve-3d; }
   .backface-hidden { backface-visibility: hidden; }
   .rotate-y-180 { transform: rotateY(180deg); }
   .card-transition { transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
-  .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
   .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
   .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   details > summary { list-style: none; }
   details > summary::-webkit-details-marker { display: none; }
+  .drop-zone-active { border-color: #d97706 !important; background-color: #fef3c7 !important; transform: scale(1.01); }
+  .draggable-chip { cursor: grab; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .draggable-chip:active { cursor: grabbing; }
+  .tap-selected-chip { ring: 2px solid #4f46e5 !important; background-color: #eef2ff !important; border-color: #6366f1 !important; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  @media (max-width: 1023px) {
+    .mobile-drawer-open { transform: translateX(0%) !important; }
+    .mobile-drawer-closed { transform: translateX(105%) !important; }
+  }
 </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-amber-200">
 
+  <!-- Non-blocking Toast Notification -->
+  <div id="app-toast" class="fixed bottom-4 right-4 z-50 hidden bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2 transition-all">
+    <span id="app-toast-text">Notification</span>
+  </div>
+
+  <!-- Hidden File Input for Progress Restore -->
+  <input type="file" id="import-progress-file" class="hidden" accept=".json" onchange="handleImportFile(event)">
+
+  <!-- Mobile Drawer Backdrop Overlay -->
+  <div id="mobile-drawer-backdrop" onclick="toggleSideQuizPanel()"
+    class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 hidden lg:hidden transition-opacity"></div>
+
+  <!-- Reset Confirmation Modal -->
+  <div id="reset-modal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200">
+      <h4 class="text-sm font-extrabold text-slate-900">Reset Spaced Repetition Progress?</h4>
+      <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+        This will reset all SM-2 intervals, due dates, and interactive quiz states across all 81 cards. Your personal notes will be preserved.
+      </p>
+      <div class="flex justify-end gap-2 mt-4">
+        <button onclick="closeResetModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700">Cancel</button>
+        <button onclick="confirmResetSRS()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white">Reset All SRS</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Header & Toolbar -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-    <div class="max-w-6xl mx-auto px-4 py-2.5 flex flex-col gap-2.5">
-      <div class="flex flex-col md:flex-row gap-3 justify-between items-center">
-        <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-amber-600 text-white font-extrabold flex items-center justify-center text-lg shadow">P</div>
+    <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col gap-2">
+      <div class="flex flex-col md:flex-row gap-2.5 justify-between items-center">
+        <div class="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-start">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-600 text-white font-extrabold flex items-center justify-center text-base sm:text-lg shadow">P</div>
             <div>
-              <h1 class="text-base md:text-lg font-bold text-slate-900 leading-tight">Storyteller Tactics® SRS & Recall Studio</h1>
-              <p class="text-[11px] text-slate-500 font-medium">81-Card Library • Spaced Repetition (SM-2) • In-Depth Active Recall</p>
+              <h1 class="text-sm sm:text-base md:text-lg font-bold text-slate-900 leading-tight">Storyteller Tactics® Recall Studio</h1>
+              <p class="text-[10px] sm:text-[11px] text-slate-500 font-medium hidden xs:block">81-Card Library • Drag &amp; Drop Recall • Mobile Ready</p>
             </div>
           </div>
-          <!-- Blind Mode Toggle (Mobile/Desktop) -->
-          <button id="blind-mode-btn" onclick="toggleBlindMode()" title="Hide card title & concept on front to test diagnostic recall"
-            class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1.5">
-            <span id="blind-mode-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
-            <span>Blind Prompt Mode</span>
-          </button>
+
+          <!-- Mode Toggles (Quick Mode + Blind Mode + Side Panel Toggle) -->
+          <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <button id="side-panel-toggle-btn" onclick="toggleSideQuizPanel()" title="Toggle Quiz Choice Bank"
+              class="text-[10px] sm:text-[11px] font-bold px-2 sm:px-2.5 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100 transition flex items-center gap-1">
+              <span>🎯 <span class="hidden sm:inline">Side</span> Bank</span>
+            </button>
+
+            <button id="quick-mode-btn" onclick="toggleQuickMode()" title="Toggle high-speed scannable Quick Mode [Shortcut: M]"
+              class="text-[10px] sm:text-[11px] font-bold px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1">
+              <span id="quick-mode-dot" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-400"></span>
+              <span>⚡ <span class="hidden sm:inline">Quick</span> Mode</span>
+            </button>
+
+            <button id="blind-mode-btn" onclick="toggleBlindMode()" title="Hide card title & concept on front [Shortcut: B]"
+              class="text-[10px] sm:text-[11px] font-bold px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1">
+              <span id="blind-mode-dot" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-slate-400"></span>
+              <span class="hidden md:inline">Blind Mode</span>
+              <span class="md:hidden">Blind</span>
+            </button>
+          </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <div class="relative flex-1 md:w-44">
-            <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search 81 cards..." 
-              class="w-full pl-7 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
-            <svg class="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <div class="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto no-scrollbar pb-0.5 md:pb-0">
+          <div class="relative min-w-[120px] flex-1 md:w-44">
+            <input type="text" id="search-input" oninput="handleSearch()" placeholder="Search cards..." 
+              class="w-full pl-6 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
+            <svg class="w-3 h-3 absolute left-2 top-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           </div>
 
           <select id="srs-filter" onchange="handleFilterChange()" 
-            class="text-xs font-bold bg-amber-50 border border-amber-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-900 cursor-pointer">
-            <option value="ALL">📚 All Cards (81)</option>
-            <option value="DUE">🔥 Due for Review (SRS)</option>
-            <option value="LEARNING">⚠️ Struggling / Learning</option>
-            <option value="NEW">🆕 Unseen / New</option>
-            <option value="MASTERED">🏆 Mastered (Interval ≥ 7d)</option>
+            class="text-[11px] sm:text-xs font-bold bg-amber-50 border border-amber-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-900 cursor-pointer shrink-0">
+            <option value="ALL">📚 All (81)</option>
+            <option value="ERRORS">❌ Missed in Quiz</option>
+            <option value="DUE">🔥 Due</option>
+            <option value="LEARNING">⚠️ Learning</option>
+            <option value="NEW">🆕 New</option>
+            <option value="MASTERED">🏆 Mastered</option>
           </select>
 
           <select id="category-filter" onchange="handleFilterChange()" 
-            class="text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-700 cursor-pointer">
+            class="text-[11px] sm:text-xs font-semibold bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-700 cursor-pointer shrink-0 max-w-[110px] sm:max-w-none truncate">
             <option value="ALL">All Categories</option>
-            <option value="Master Recipes">Master Recipes & System (9)</option>
+            <option value="Master Recipes">Master Recipes (9)</option>
             <option value="Structure">Structure (13)</option>
             <option value="Concept">Concept (7)</option>
             <option value="Explore">Explore (11)</option>
@@ -71,39 +124,48 @@
           </select>
 
           <select id="card-select" onchange="handleSelectCard()" 
-            class="text-xs font-medium bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-700 max-w-[155px] truncate cursor-pointer">
+            class="text-[11px] sm:text-xs font-medium bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-700 max-w-[120px] sm:max-w-[155px] truncate cursor-pointer shrink-0">
           </select>
         </div>
       </div>
 
-      <!-- Spaced Repetition Telemetry Bar -->
-      <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px]">
-        <div class="flex flex-wrap items-center gap-3">
-          <button onclick="setQuickSRSFilter('DUE')" class="flex items-center gap-1.5 font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full hover:bg-rose-100 transition">
-            <span class="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
-            <span>Due Now: <strong id="stat-due">0</strong></span>
+      <!-- Spaced Repetition Telemetry Bar (Mobile Scrollable) -->
+      <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[10px] sm:text-[11px] overflow-x-auto no-scrollbar">
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button onclick="setQuickSRSFilter('ERRORS')" class="flex items-center gap-1 font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full hover:bg-rose-100 transition whitespace-nowrap">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+            <span>Missed: <strong id="stat-errors">0</strong></span>
           </button>
-          <button onclick="setQuickSRSFilter('LEARNING')" class="text-amber-800 font-semibold hover:underline">
+          <button onclick="setQuickSRSFilter('DUE')" class="flex items-center gap-1 font-bold text-amber-800 hover:underline whitespace-nowrap">
+            Due: <strong id="stat-due">0</strong>
+          </button>
+          <button onclick="setQuickSRSFilter('LEARNING')" class="text-amber-800 font-semibold hover:underline whitespace-nowrap">
             Learning: <strong id="stat-learning">0</strong>
           </button>
-          <button onclick="setQuickSRSFilter('NEW')" class="text-slate-600 font-semibold hover:underline">
+          <button onclick="setQuickSRSFilter('NEW')" class="text-slate-600 font-semibold hover:underline whitespace-nowrap">
             New: <strong id="stat-new">81</strong>
           </button>
-          <button onclick="setQuickSRSFilter('MASTERED')" class="text-emerald-700 font-semibold hover:underline">
+          <button onclick="setQuickSRSFilter('MASTERED')" class="text-emerald-700 font-semibold hover:underline whitespace-nowrap">
             Mastered: <strong id="stat-mastered">0</strong>
           </button>
         </div>
 
-        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          <div class="flex items-center gap-2">
-            <span class="text-slate-500 font-semibold">Deck Mastery:</span>
-            <div class="w-28 h-2 bg-slate-200 rounded-full overflow-hidden">
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="exportProgressJSON()" title="Download progress file (JSON)" class="text-[10px] sm:text-[11px] text-slate-600 hover:text-indigo-600 font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 transition flex items-center gap-1">
+            💾 Backup
+          </button>
+          <button onclick="triggerImportFileInput()" title="Upload progress file (JSON)" class="text-[10px] sm:text-[11px] text-slate-600 hover:text-indigo-600 font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 transition flex items-center gap-1">
+            📂 Restore
+          </button>
+          <div class="flex items-center gap-1.5 pl-1 border-l border-slate-200">
+            <span class="text-slate-500 font-semibold hidden xs:inline">Mastery:</span>
+            <div class="w-16 sm:w-20 h-1.5 sm:h-2 bg-slate-200 rounded-full overflow-hidden">
               <div id="mastery-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
             </div>
             <span id="stat-pct" class="font-bold text-slate-700">0%</span>
           </div>
           <button onclick="resetSRSProgress()" class="text-[10px] text-slate-400 hover:text-red-600 font-semibold transition" title="Clear saved SRS progress">
-            Reset SRS
+            Reset
           </button>
         </div>
       </div>
@@ -111,262 +173,550 @@
   </header>
 
   <!-- Flashcard Workspace -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-3 md:p-5 flex flex-col items-center justify-center">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-3 md:p-4 flex flex-col justify-center relative">
 
     <!-- Top Card Meta Row -->
-    <div class="w-full flex flex-wrap justify-between items-center mb-2 px-1 gap-2 text-xs text-slate-500 font-semibold">
-      <div class="flex items-center gap-2">
-        <span id="deck-counter" class="uppercase tracking-wide">Card 1 of 81</span>
-        <span id="card-srs-badge" class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">New</span>
-        <span id="card-srs-meta" class="text-[11px] text-slate-400 font-normal hidden sm:inline"></span>
+    <div class="w-full flex flex-wrap justify-between items-center mb-1.5 px-1 gap-1.5 text-xs text-slate-500 font-semibold">
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <span id="deck-counter" class="uppercase tracking-wide text-[11px] sm:text-xs">Card 1 of 81</span>
+        <button onclick="shuffleDeck()" title="Shuffle Deck (Randomize card order) [Shortcut: S]"
+          class="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 bg-white hover:bg-amber-50 hover:border-amber-400 text-slate-700 transition flex items-center gap-1 shadow-2xs active:scale-95">
+          <span>🔀</span>
+          <span>Shuffle</span>
+        </button>
+        <span id="card-srs-badge" class="text-[9px] sm:text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">New</span>
+        <span id="card-srs-meta" class="text-[10px] sm:text-[11px] text-slate-400 font-normal hidden sm:inline"></span>
       </div>
-      <span class="hidden md:inline-block text-slate-400 text-[11px]">Shortcuts: [Space] Flip | [&larr;/&rarr;] Nav | [Q] Deep Questions | [1-4] Rate Memory</span>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] text-slate-400 font-normal sm:hidden">Swipe card to navigate</span>
+        <button onclick="toggleSideQuizPanel()" class="text-indigo-600 hover:underline font-bold text-[11px] lg:hidden flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+          🎯 Choice Bank
+        </button>
+        <span class="hidden md:inline-block text-slate-400 text-[11px]">Shortcuts: [Space] Flip | [&larr;/&rarr;] Nav | [S] Shuffle | [Q] Questions | [M] Quick | [1-4] Rate</span>
+      </div>
     </div>
 
-    <!-- 3D Card Stage -->
-    <div class="perspective w-full h-[540px] select-none cursor-pointer" onclick="handleCardClick(event)">
-      <div id="flashcard-inner" class="relative w-full h-full preserve-3d card-transition">
+    <!-- Workspace Grid: Flashcard on Left/Center + Quiz Choice Bank on the Side Outside of the Card -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start w-full relative">
 
-        <!-- CARD FRONT -->
-        <div id="card-front" class="absolute inset-0 backface-hidden bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-6 md:p-8 flex flex-col justify-between overflow-hidden">
-          <div>
-            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
-              <span id="front-category" class="text-xs font-extrabold uppercase px-3 py-1 rounded-full tracking-wider text-white shadow-sm">Category</span>
-              <div class="flex items-center gap-2">
-                <span id="front-due-status" class="text-[11px] font-semibold text-slate-400"></span>
-                <span id="front-number" class="text-xs font-bold text-slate-400 font-mono tracking-tight">#01</span>
+      <!-- LEFT / CENTER: Flashcard & Navigation -->
+      <div id="card-column" class="lg:col-span-7 xl:col-span-8 flex flex-col items-center w-full transition-all duration-300">
+        <!-- 3D Card Stage (Responsive Fluid Height: calibrated to eliminate empty space) -->
+        <div id="flashcard-stage" class="perspective w-full h-[500px] sm:h-[540px] lg:h-[580px] select-none" onclick="handleCardClick(event)">
+          <div id="flashcard-inner" class="relative w-full h-full preserve-3d card-transition touch-pan-y">
+
+            <!-- ================= CARD FRONT ================= -->
+            <div id="card-front" class="absolute inset-0 backface-hidden bg-white border-2 border-slate-200 rounded-2xl shadow-xl p-3.5 sm:p-5 md:p-6 flex flex-col justify-between overflow-hidden cursor-pointer">
+              <!-- Front Header Bar -->
+              <div class="flex justify-between items-center pb-2 border-b border-slate-100 shrink-0">
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                  <span id="front-category" class="text-[10px] sm:text-xs font-extrabold uppercase px-2.5 py-0.5 sm:py-1 rounded-full tracking-wider text-white shadow-xs">Category</span>
+                  <span id="front-number" class="text-[11px] sm:text-xs font-bold text-slate-500 font-mono tracking-tight bg-slate-100 px-2 py-0.5 rounded">#01</span>
+                </div>
+                <div class="flex items-center gap-1.5" onclick="event.stopPropagation()">
+                  <span id="front-due-status" class="text-[10px] sm:text-[11px] font-semibold text-slate-400 hidden sm:inline"></span>
+                  <button onclick="toggleQuickMode()" id="front-quick-btn"
+                    class="text-[10px] sm:text-[11px] font-extrabold px-2 py-1 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1">
+                    <span>⚡ Quick:</span>
+                    <span id="front-quick-state" class="text-slate-500">OFF</span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <!-- Standard Front Header (Hidden in Blind Prompt Mode) -->
-            <div id="front-identity-block" class="mt-4">
-              <h2 id="front-name" class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">Card Name</h2>
-              <p id="front-tagline" class="text-sm font-semibold text-amber-700 mt-1 uppercase tracking-wide">Tagline</p>
-              <div class="mt-4 bg-slate-50 border-l-4 border-slate-300 p-4 rounded-r-xl">
-                <p id="front-concept" class="text-sm text-slate-700 leading-relaxed font-normal">Core concept...</p>
+              <!-- Front Scrollable Body: Compact, natural layout matching screenshot without excessive voids -->
+              <div class="flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 flex flex-col justify-start gap-2.5 sm:gap-3">
+                <div>
+                  <!-- Standard Front Identity Block (Hidden in Blind Prompt Mode) -->
+                  <div id="front-identity-block" class="mt-1">
+                    <h2 id="front-name" class="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">Card Name</h2>
+                    <p id="front-tagline" class="text-xs sm:text-sm font-bold text-amber-800 mt-0.5 uppercase tracking-wide">Tagline</p>
+                    <div id="front-concept-box" class="mt-2.5 bg-slate-50 border-l-4 border-slate-300 p-3 sm:p-3.5 rounded-r-xl">
+                      <p id="front-concept" class="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">Core concept...</p>
+                    </div>
+                  </div>
+
+                  <!-- Blind Mode Mask Banner (Shown only when Blind Prompt Mode is active) -->
+                  <div id="front-blind-mask" class="hidden mt-2 bg-slate-900 text-white p-3.5 sm:p-4 rounded-xl border border-slate-700 shadow-inner" onclick="event.stopPropagation()">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest text-amber-400">🎯 Blind Active Recall Challenge</span>
+                      <button onclick="revealBlindFront(event)" class="text-[10px] sm:text-[11px] font-bold text-amber-300 hover:underline">Peek Title</button>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed">
+                      Read the <strong>Diagnostic Trigger</strong> &amp; <strong>Pre-Flip Prompt</strong> below. Before flipping, identify:
+                    </p>
+                    <ul class="text-[11px] sm:text-xs text-slate-300 mt-1.5 space-y-0.5 list-disc list-inside">
+                      <li>Which <strong>#XX Storyteller Tactic card</strong> solves this problem?</li>
+                      <li>What are its <strong>execution steps</strong>, <strong>#XX Run Before / After links</strong>, and <strong>Common Trap</strong>?</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- FRONT STANDARD MODE PANELS (Naturally stacked, balanced spacing) -->
+                <div id="front-standard-panels" class="space-y-2.5 mt-0.5">
+                  <!-- Diagnostic Trigger -->
+                  <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+                    <div class="flex items-center gap-1.5 mb-1">
+                      <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-600 animate-pulse"></span>
+                      <span class="text-[10px] sm:text-[11px] font-extrabold text-amber-900 uppercase tracking-wider">Diagnostic Trigger (When to use):</span>
+                    </div>
+                    <p id="front-diagnostic" class="text-xs sm:text-sm font-medium text-amber-950 italic leading-relaxed">"When to reach for this card..."</p>
+                  </div>
+
+                  <!-- Front Pre-Flip Recall Question -->
+                  <div class="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+                    <div class="flex items-center justify-between mb-1">
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-sm">🧠</span>
+                        <span class="text-[10px] sm:text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider">Pre-Flip Recall Question:</span>
+                      </div>
+                      <span class="text-[10px] text-indigo-600 font-medium hidden xs:inline">Flip to verify &amp; self-grade</span>
+                    </div>
+                    <p id="front-deep-question" class="text-xs sm:text-sm font-medium text-slate-800 leading-relaxed"></p>
+                  </div>
+                </div>
+
+                <!-- FRONT QUICK MODE PANEL (High-Speed Scannable Essence) -->
+                <div id="front-quick-panel" class="hidden space-y-2" onclick="event.stopPropagation()">
+                  <div class="bg-amber-50/90 border border-amber-300 rounded-xl p-2.5 shadow-xs">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-amber-900">⚡ Quick Diagnostic Trigger</span>
+                      <span class="text-[9px] sm:text-[10px] font-bold text-amber-700">Front Quick View</span>
+                    </div>
+                    <p id="front-quick-diag" class="text-xs font-semibold text-amber-950 italic"></p>
+                  </div>
+
+                  <!-- Quick Step Headlines & Referenced Cards on Front -->
+                  <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-600">⚡ Step Headlines &amp; Card Cross-Refs</span>
+                      <button onclick="openQuestionsDirectly()" class="text-[10px] font-bold text-indigo-600 hover:underline">Test Steps &rarr;</button>
+                    </div>
+                    <div id="front-quick-steps" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5"></div>
+                  </div>
+
+                  <!-- Quick Trap + Run Before / Run After on Front -->
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div class="bg-rose-50 border border-rose-200 rounded-xl p-2.5">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-[9px] sm:text-[10px] font-extrabold uppercase text-rose-900">⚠️ Common Trap</span>
+                        <button onclick="toggleFrontQuickTrapReveal()" class="text-[9px] sm:text-[10px] font-bold text-rose-700 underline">Peek/Hide</button>
+                      </div>
+                      <p id="front-quick-trap" class="text-[10px] sm:text-[11px] font-semibold text-rose-950 leading-snug"></p>
+                    </div>
+
+                    <div class="bg-blue-50/70 border border-blue-200 rounded-xl p-2">
+                      <p class="text-[9px] sm:text-[10px] font-extrabold uppercase text-blue-900 mb-1">&larr; Run Before (# Card):</p>
+                      <div id="front-quick-before" class="flex flex-wrap gap-1"></div>
+                    </div>
+
+                    <div class="bg-emerald-50/70 border border-emerald-200 rounded-xl p-2">
+                      <p class="text-[9px] sm:text-[10px] font-extrabold uppercase text-emerald-900 mb-1">&rarr; Run After (# Card):</p>
+                      <div id="front-quick-after" class="flex flex-wrap gap-1"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <!-- Blind Mode Mask Banner (Shown only when Blind Prompt Mode is active) -->
-            <div id="front-blind-mask" class="hidden mt-4 bg-slate-900 text-white p-5 rounded-xl border border-slate-700 shadow-inner">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">🎯 Blind Active Recall Challenge</span>
-                <button onclick="revealBlindFront(event)" class="text-[11px] font-bold text-amber-300 hover:underline">Peek Title</button>
-              </div>
-              <p class="text-sm text-slate-200 font-medium leading-relaxed">
-                Read the <strong>Diagnostic Trigger</strong> &amp; <strong>In-Depth Prompt</strong> below. Before flipping, state aloud:
-              </p>
-              <ul class="text-xs text-slate-300 mt-2 space-y-1 list-disc list-inside">
-                <li>Which <strong>Storyteller Tactic card</strong> solves this problem?</li>
-                <li>What are the <strong>exact numbered execution steps</strong> and the <strong>Common Trap</strong>?</li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="space-y-2.5 mt-3">
-            <!-- Diagnostic Trigger -->
-            <div class="bg-amber-50/90 border border-amber-200 rounded-xl p-3.5 shadow-sm">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
-                <span class="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider">Diagnostic Trigger (When to use):</span>
-              </div>
-              <p id="front-diagnostic" class="text-sm font-medium text-amber-950 italic">"When to reach for this card..."</p>
-            </div>
-
-            <!-- Front Quick Recall Teaser Question -->
-            <div class="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3.5 shadow-sm">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider">🧠 Pre-Flip Recall Question:</span>
-                <span class="text-[10px] font-semibold text-indigo-600">Flip to verify &amp; self-grade</span>
-              </div>
-              <p id="front-deep-question" class="text-xs font-medium text-indigo-950 leading-relaxed"></p>
-            </div>
-          </div>
-
-          <div class="text-center pt-1 text-xs font-semibold text-slate-400">
-            Click card or press <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px] text-slate-600">Space</kbd> to flip &amp; grade memory &rarr;
-          </div>
-        </div>
-
-        <!-- CARD BACK -->
-        <div id="card-back" class="absolute inset-0 backface-hidden rotate-y-180 bg-slate-50 border-2 border-slate-300 rounded-2xl shadow-xl p-4 md:p-5 flex flex-col justify-between overflow-hidden cursor-default" onclick="event.stopPropagation()">
-          <!-- Back Top Bar with Mode Tabs -->
-          <div class="flex flex-wrap justify-between items-center gap-2 pb-2 border-b border-slate-200">
-            <div class="flex items-center gap-2">
-              <span id="back-category-dot" class="w-3 h-3 rounded-full"></span>
-              <h3 id="back-name" class="text-base font-bold text-slate-900">Card Name</h3>
-              <span id="back-number" class="text-xs font-mono font-bold text-slate-400">#01</span>
-            </div>
-
-            <!-- Sub-navigation Tabs on Card Back -->
-            <div class="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-bold">
-              <button id="tab-btn-steps" onclick="switchBackTab('steps')" 
-                class="px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm transition">
-                📋 Execution &amp; Links
-              </button>
-              <button id="tab-btn-questions" onclick="switchBackTab('questions')" 
-                class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1">
-                <span>🧠 In-Depth Questions</span>
-                <span class="px-1.5 py-0.2 bg-indigo-600 text-white rounded-full text-[10px]">4</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- TAB 1: EXECUTION STEPS & CHAINING -->
-          <div id="back-tab-steps" class="flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 space-y-2.5">
-            <div>
-              <div class="flex justify-between items-center mb-1">
-                <p class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Steps to Do It Correctly:</p>
-                <button onclick="switchBackTab('questions')" class="text-[11px] font-bold text-indigo-600 hover:underline">
-                  Test Yourself on These Steps &rarr;
+              <!-- Front Footer -->
+              <div class="text-center pt-2 border-t border-slate-100 text-[11px] sm:text-xs font-semibold text-slate-400 shrink-0 flex items-center justify-between">
+                <span><span class="hidden sm:inline">Click card or press </span><kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[9px] sm:text-[10px] text-slate-600">Space</kbd> to flip</span>
+                <button onclick="openQuestionsDirectly(); event.stopPropagation();" class="text-indigo-600 hover:underline font-bold text-[10px] sm:text-xs">
+                  Quiz &rarr;
                 </button>
               </div>
-              <div id="back-steps-content" class="text-xs text-slate-800 whitespace-pre-line leading-relaxed bg-white p-3 rounded-xl border border-slate-200 shadow-sm font-sans"></div>
             </div>
 
-            <div class="bg-red-50 border-l-4 border-red-500 p-2.5 rounded-r-xl">
-              <p class="text-[10px] font-extrabold uppercase tracking-wider text-red-900 mb-0.5">Common Trap / Watch-Out:</p>
-              <p id="back-trap-content" class="text-xs text-red-950 leading-relaxed font-medium"></p>
+            <!-- ================= CARD BACK ================= -->
+            <div id="card-back" class="absolute inset-0 backface-hidden rotate-y-180 bg-slate-50 border-2 border-slate-300 rounded-2xl shadow-xl p-3 sm:p-4 md:p-5 flex flex-col justify-between overflow-hidden cursor-default" onclick="event.stopPropagation()">
+              <!-- Back Top Bar with Mode Tabs + Quick Mode Toggle -->
+              <div class="flex flex-wrap justify-between items-center gap-1.5 pb-2 border-b border-slate-200 shrink-0">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span id="back-category-dot" class="w-2.5 h-2.5 rounded-full shrink-0"></span>
+                  <span id="back-number" class="text-[11px] font-mono font-extrabold text-slate-600 bg-slate-200/80 px-1.5 py-0.5 rounded shrink-0">#01</span>
+                  <h3 id="back-name" class="text-xs sm:text-sm md:text-base font-bold text-slate-900 truncate max-w-[130px] sm:max-w-xs">Card Name</h3>
+                </div>
+
+                <div class="flex items-center gap-1">
+                  <!-- Quick Mode Toggle on Back -->
+                  <button onclick="toggleQuickMode()" id="back-quick-btn"
+                    class="text-[10px] sm:text-[11px] font-extrabold px-2 py-1 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-0.5 sm:gap-1">
+                    <span>⚡ Quick:</span>
+                    <span id="back-quick-state" class="text-slate-500">OFF</span>
+                  </button>
+
+                  <!-- Sub-navigation Tabs on Card Back -->
+                  <div class="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-[10px] sm:text-xs font-bold">
+                    <button id="tab-btn-steps" onclick="switchBackTab('steps')" 
+                      class="px-2 sm:px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-xs transition">
+                      📋 <span class="hidden xs:inline">Execution</span>
+                    </button>
+                    <button id="tab-btn-questions" onclick="switchBackTab('questions')" 
+                      class="px-2 sm:px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1">
+                      <span>🧠 <span class="hidden xs:inline">Quiz</span></span>
+                      <span class="px-1 py-0.2 bg-indigo-600 text-white rounded-full text-[9px]">4</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 1: EXECUTION STEPS (STANDARD ORIGINAL VIEW) & CHAINING -->
+              <div id="back-tab-steps" class="flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 space-y-2">
+                <div>
+                  <div class="flex justify-between items-center mb-1">
+                    <p class="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                      Steps to Do It Correctly:
+                    </p>
+                    <button onclick="switchBackTab('questions')" class="text-[10px] sm:text-[11px] font-bold text-indigo-600 hover:underline">
+                      Test Steps &rarr;
+                    </button>
+                  </div>
+                  <!-- Standard clean view: formatted execution steps box matching original design -->
+                  <div id="back-steps-content" class="text-xs text-slate-800 whitespace-pre-line leading-relaxed bg-white p-3 sm:p-3.5 rounded-xl border border-slate-200 shadow-2xs font-sans"></div>
+                </div>
+
+                <div class="bg-red-50 border-l-4 border-red-500 p-2 sm:p-2.5 rounded-r-xl">
+                  <p class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-red-900 mb-0.5">COMMON TRAP / WATCH-OUT:</p>
+                  <p id="back-trap-content" class="text-xs text-red-950 leading-relaxed font-medium"></p>
+                </div>
+
+                <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <p class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                      <span class="text-blue-600 font-extrabold">&larr;</span> Run Before:
+                    </p>
+                    <div id="back-before-chips" class="flex flex-wrap gap-1"></div>
+                  </div>
+                  <div class="sm:border-l border-slate-100 sm:pl-2">
+                    <p class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                      <span class="text-emerald-600 font-extrabold">&rarr;</span> Run After:
+                    </p>
+                    <div id="back-after-chips" class="flex flex-wrap gap-1"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 2: INTERACTIVE QUESTIONS & DRAG-AND-DROP RECALL SUITE (DROP ZONES IN CARD) -->
+              <div id="back-tab-questions" class="hidden flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 space-y-2.5">
+
+                <!-- Missed Questions Notification & Practice Banner -->
+                <div id="card-error-banner" class="hidden p-2.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-950 text-xs flex items-center justify-between gap-2 shadow-2xs">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-rose-600 text-sm">❌</span>
+                    <span class="leading-snug"><strong>Flagged for Practice:</strong> You previously had mistakes on this card.</span>
+                  </div>
+                  <button onclick="clearCardErrorFlag()" class="text-[10px] font-extrabold px-2 py-1 rounded bg-rose-200 hover:bg-rose-300 text-rose-950 shrink-0 transition">
+                    Clear Flag
+                  </button>
+                </div>
+
+                <!-- Tap-to-Place Active Notice for Touch Users -->
+                <div id="tap-placement-banner" class="hidden p-2 rounded-xl bg-indigo-50 border border-indigo-300 text-indigo-950 text-xs flex items-center justify-between">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping shrink-0"></span>
+                    <span class="truncate">Selected: <strong id="tap-selected-title" class="truncate">Item</strong></span>
+                  </div>
+                  <button onclick="clearTapSelection()" class="text-xs font-bold text-indigo-600 underline ml-2 shrink-0">Cancel</button>
+                </div>
+
+                <!-- SECTION 1: DRAG & DROP STEPS TO DO IT CORRECTLY (SINGLE UNIFIED SEQUENCE ZONE) -->
+                <div class="bg-white p-2.5 sm:p-3.5 rounded-xl border border-amber-200 shadow-sm">
+                  <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1.5 pb-1 border-b border-amber-100">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                        1. Steps Sequence Recall
+                      </span>
+                      <span id="dnd-step-score" class="text-[9px] sm:text-[10px] font-extrabold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded">0 Placed</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <button onclick="autoFillStepDnd()" class="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Reveal
+                      </button>
+                      <button onclick="resetStepDnd()" class="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">
+                        Clear
+                      </button>
+                      <button onclick="openSideBankWithTab('steps')" class="text-[9px] sm:text-[10px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-300">
+                        Pick &rarr;
+                      </button>
+                    </div>
+                  </div>
+
+                  <p class="text-[10px] sm:text-[11px] text-slate-500 mb-1.5 leading-snug">
+                    Drag steps into this single zone in the order they belong (remember how many steps exist):
+                  </p>
+
+                  <!-- The Single Unified Drop Zone -->
+                  <div id="dropzone-steps-unified"
+                    onclick="handleSlotTap('dropzone-steps-unified', 'steps_unified')"
+                    ondragover="handleDragOver(event, 'dropzone-steps-unified')"
+                    ondragleave="handleDragLeave(event, 'dropzone-steps-unified')"
+                    ondrop="handleDropStepUnified(event)"
+                    class="min-h-[110px] p-2 sm:p-2.5 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/30 transition cursor-pointer flex flex-col justify-start gap-1.5">
+                    <!-- Populated dynamically by renderStepDropZones -->
+                  </div>
+                </div>
+
+                <!-- SECTION 2: DRAG & DROP RUN BEFORE & RUN AFTER BUILDER -->
+                <div class="bg-white p-2.5 sm:p-3.5 rounded-xl border border-blue-200 shadow-sm">
+                  <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1.5 pb-1 border-b border-blue-100">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-900">
+                        2. Run Before &amp; Run After
+                      </span>
+                      <span id="dnd-chain-score" class="text-[9px] sm:text-[10px] font-extrabold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded">0 / 0</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <button onclick="autoFillChainDnd()" class="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Reveal
+                      </button>
+                      <button onclick="resetChainDnd()" class="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">
+                        Clear
+                      </button>
+                      <button onclick="openSideBankWithTab('cards')" class="text-[9px] sm:text-[10px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded bg-blue-50 text-blue-900 hover:bg-blue-100 border border-blue-300">
+                        Pick &rarr;
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <!-- Run Before Drop Zone -->
+                    <div id="dropzone-before"
+                      onclick="handleSlotTap('dropzone-before', 'chain_before')"
+                      ondragover="handleDragOver(event, 'dropzone-before')"
+                      ondragleave="handleDragLeave(event, 'dropzone-before')"
+                      ondrop="handleDropCard(event, 'before')"
+                      class="min-h-[75px] sm:min-h-[85px] p-2 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/40 transition flex flex-col justify-between cursor-pointer">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-blue-900">&larr; "Run Before" Drop Zone</span>
+                        <span id="before-target-count" class="text-[9px] sm:text-[10px] font-bold text-blue-700">Target: 0</span>
+                      </div>
+                      <div id="dropped-before-list" class="flex flex-wrap gap-1 my-1"></div>
+                    </div>
+
+                    <!-- Run After Drop Zone -->
+                    <div id="dropzone-after"
+                      onclick="handleSlotTap('dropzone-after', 'chain_after')"
+                      ondragover="handleDragOver(event, 'dropzone-after')"
+                      ondragleave="handleDragLeave(event, 'dropzone-after')"
+                      ondrop="handleDropCard(event, 'after')"
+                      class="min-h-[75px] sm:min-h-[85px] p-2 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 transition flex flex-col justify-between cursor-pointer">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-emerald-900">&rarr; "Run After" Drop Zone</span>
+                        <span id="after-target-count" class="text-[9px] sm:text-[10px] font-bold text-emerald-700">Target: 0</span>
+                      </div>
+                      <div id="dropped-after-list" class="flex flex-wrap gap-1 my-1"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 3: DRAG & DROP COMMON TRAP SELECTOR -->
+                <div class="bg-white p-2.5 sm:p-3.5 rounded-xl border border-rose-200 shadow-sm">
+                  <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1.5 pb-1 border-b border-rose-100">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-900">
+                        3. Identify Common Trap
+                      </span>
+                      <span id="dnd-trap-status" class="text-[9px] sm:text-[10px] font-extrabold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded truncate max-w-[140px]">Awaiting</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <button onclick="revealCorrectTrapDnd()" class="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200">
+                        Reveal
+                      </button>
+                      <button onclick="resetTrapDnd()" class="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">
+                        Clear
+                      </button>
+                      <button onclick="openSideBankWithTab('traps')" class="text-[9px] sm:text-[10px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded bg-rose-50 text-rose-900 hover:bg-rose-100 border border-rose-300">
+                        Pick &rarr;
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Trap Drop Zone -->
+                  <div id="dropzone-trap"
+                    onclick="handleSlotTap('dropzone-trap', 'trap')"
+                    ondragover="handleDragOver(event, 'dropzone-trap')"
+                    ondragleave="handleDragLeave(event, 'dropzone-trap')"
+                    ondrop="handleDropTrap(event)"
+                    class="min-h-[75px] sm:min-h-[85px] p-2 rounded-xl border-2 border-dashed border-rose-300 bg-rose-50/40 transition flex flex-col justify-center cursor-pointer">
+                    <div id="dropped-trap-display" class="text-xs text-slate-500 italic text-center">
+                      Drag trap here or tap trap in side bank then tap this zone
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SECTION 4: APPLIED SCENARIO CHALLENGE -->
+                <div class="bg-white p-2.5 sm:p-3 rounded-xl border border-indigo-200 shadow-sm">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-100 text-indigo-900">
+                      4. Applied Scenario Challenge
+                    </span>
+                    <span class="text-[9px] sm:text-[10px] text-slate-400 font-semibold">Comprehension</span>
+                  </div>
+                  <p id="q-scenario-prompt" class="text-xs font-semibold text-slate-800 leading-relaxed mt-1"></p>
+                  <details class="mt-2 group">
+                    <summary class="text-[10px] sm:text-[11px] font-bold text-indigo-600 cursor-pointer hover:underline select-none flex items-center gap-1">
+                      <span>&#9654; Reveal Expert Model Answer &amp; Rubric</span>
+                    </summary>
+                    <div id="q-scenario-answer" class="mt-1.5 p-2 sm:p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-lg text-xs text-slate-800 leading-relaxed"></div>
+                  </details>
+                </div>
+
+                <!-- SECTION 5: PERSONAL ELABORATION & WORKSPACE APPLICATION -->
+                <div class="bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-900">
+                      5. Personal Elaboration &amp; Chaining
+                    </span>
+                    <span id="note-save-indicator" class="text-[9px] sm:text-[10px] text-slate-400 font-medium">Auto-saved locally</span>
+                  </div>
+                  <p id="q-chain-prompt" class="text-[10px] sm:text-[11px] text-slate-700 mb-1.5 font-medium"></p>
+                  <textarea id="card-user-note" rows="2" oninput="saveUserCardNote()"
+                    placeholder="Write a 1-2 sentence example of how you will apply this tactic..."
+                    class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+                </div>
+
+              </div>
+
+              <!-- Spaced Repetition Grading Bar (Touch-Optimized Minimum 44px) -->
+              <div class="pt-2 border-t border-slate-200 shrink-0">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                    Rate Recall (SRS):
+                  </span>
+                  <button onclick="flipCard()" class="text-[10px] sm:text-[11px] text-amber-700 font-bold hover:underline">
+                    &larr; Flip Front
+                  </button>
+                </div>
+                <div class="grid grid-cols-4 gap-1 sm:gap-1.5">
+                  <button onclick="rateCard(1)" class="min-h-[44px] py-1 px-1 sm:px-2 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-800 hover:text-white border border-rose-300 transition flex flex-col items-center justify-center">
+                    <span class="text-[11px] sm:text-xs font-black">[1] Again</span>
+                    <span id="int-btn-1" class="text-[9px] sm:text-[10px] opacity-80">&lt; 10m</span>
+                  </button>
+                  <button onclick="rateCard(2)" class="min-h-[44px] py-1 px-1 sm:px-2 rounded-xl bg-amber-50 hover:bg-amber-600 text-amber-900 hover:text-white border border-amber-300 transition flex flex-col items-center justify-center">
+                    <span class="text-[11px] sm:text-xs font-black">[2] Hard</span>
+                    <span id="int-btn-2" class="text-[9px] sm:text-[10px] opacity-80">1d</span>
+                  </button>
+                  <button onclick="rateCard(3)" class="min-h-[44px] py-1 px-1 sm:px-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white border border-emerald-300 transition flex flex-col items-center justify-center">
+                    <span class="text-[11px] sm:text-xs font-black">[3] Good</span>
+                    <span id="int-btn-3" class="text-[9px] sm:text-[10px] opacity-80">3d</span>
+                  </button>
+                  <button onclick="rateCard(4)" class="min-h-[44px] py-1 px-1 sm:px-2 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-800 hover:text-white border border-blue-300 transition flex flex-col items-center justify-center">
+                    <span class="text-[11px] sm:text-xs font-black">[4] Easy</span>
+                    <span id="int-btn-4" class="text-[9px] sm:text-[10px] opacity-80">7d</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
 
-            <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
-                  <span class="text-blue-600 font-extrabold">&larr;</span> Run Before:
-                </p>
-                <div id="back-before-chips" class="flex flex-wrap gap-1"></div>
-              </div>
-              <div class="sm:border-l border-slate-100 sm:pl-2">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
-                  <span class="text-emerald-600 font-extrabold">&rarr;</span> Run After:
-                </p>
-                <div id="back-after-chips" class="flex flex-wrap gap-1"></div>
-              </div>
-            </div>
           </div>
-
-          <!-- TAB 2: IN-DEPTH QUESTIONS & ACTIVE RECALL SUITE -->
-          <div id="back-tab-questions" class="hidden flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 space-y-2.5">
-            
-            <!-- Q1: Bespoke Case Study & Model Rubric -->
-            <div class="bg-white p-3 rounded-xl border border-indigo-200 shadow-sm">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-100 text-indigo-900">
-                  1. Applied Scenario Challenge
-                </span>
-                <span class="text-[10px] text-slate-400 font-semibold">Deep Comprehension</span>
-              </div>
-              <p id="q-scenario-prompt" class="text-xs font-semibold text-slate-800 leading-relaxed mt-1"></p>
-              <details class="mt-2 group">
-                <summary class="text-[11px] font-bold text-indigo-600 cursor-pointer hover:underline select-none flex items-center gap-1">
-                  <span>&#9654; Reveal Expert Model Answer &amp; Rubric</span>
-                </summary>
-                <div id="q-scenario-answer" class="mt-1.5 p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-lg text-xs text-slate-800 leading-relaxed"></div>
-              </details>
-            </div>
-
-            <!-- Q2: Interactive Step-by-Step Reconstruction Check -->
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900">
-                  2. Execution Sequence Recall Checklist
-                </span>
-                <span id="q-step-score" class="text-[10px] font-bold text-emerald-700">0/0 steps verified</span>
-              </div>
-              <p class="text-[11px] text-slate-600 mb-2">
-                Recite the execution steps from memory, then check off each step below that you accurately recalled:
-              </p>
-              <div id="q-steps-checklist" class="space-y-1.5"></div>
-            </div>
-
-            <!-- Q3: Pre-Mortem & Cognitive Trap Question -->
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-900">
-                  3. Failure Mode &amp; Trap Audit
-                </span>
-                <span class="text-[10px] text-slate-400 font-semibold">Error Prevention</span>
-              </div>
-              <p id="q-trap-prompt" class="text-xs font-semibold text-slate-800 leading-relaxed"></p>
-              <details class="mt-1.5">
-                <summary class="text-[11px] font-bold text-rose-700 cursor-pointer hover:underline select-none">
-                  &#9654; Reveal Target Trap &amp; Guardrail
-                </summary>
-                <div id="q-trap-answer" class="mt-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-950 font-medium"></div>
-              </details>
-            </div>
-
-            <!-- Q4: Chaining & Personal Workspace Application (Saved per card) -->
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-              <div class="flex items-center justify-between mb-1">
-                <span class="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-900">
-                  4. Personal Elaboration &amp; Tactic Chaining
-                </span>
-                <span id="note-save-indicator" class="text-[10px] text-slate-400 font-medium">Auto-saved locally</span>
-              </div>
-              <p id="q-chain-prompt" class="text-[11px] text-slate-700 mb-1.5 font-medium"></p>
-              <textarea id="card-user-note" rows="2" oninput="saveUserCardNote()"
-                placeholder="Write a 1-2 sentence example of how you will apply this tactic to a real project, presentation, or incident..."
-                class="w-full text-xs p-2 rounded-lg border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
-            </div>
-
-          </div>
-
-          <!-- Spaced Repetition Grading Bar (Always accessible on Card Back) -->
-          <div class="pt-2 border-t border-slate-200">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                Rate Your Recall (Spaced Repetition):
-              </span>
-              <button onclick="flipCard()" class="text-[11px] text-amber-700 font-bold hover:underline">
-                &larr; Flip to Front
-              </button>
-            </div>
-            <div class="grid grid-cols-4 gap-1.5">
-              <button onclick="rateCard(1)" class="py-1.5 px-2 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-800 hover:text-white border border-rose-300 transition flex flex-col items-center">
-                <span class="text-xs font-extrabold">[1] Again</span>
-                <span id="int-btn-1" class="text-[10px] opacity-80">&lt; 10m</span>
-              </button>
-              <button onclick="rateCard(2)" class="py-1.5 px-2 rounded-lg bg-amber-50 hover:bg-amber-600 text-amber-900 hover:text-white border border-amber-300 transition flex flex-col items-center">
-                <span class="text-xs font-extrabold">[2] Hard</span>
-                <span id="int-btn-2" class="text-[10px] opacity-80">1d</span>
-              </button>
-              <button onclick="rateCard(3)" class="py-1.5 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-800 hover:text-white border border-emerald-300 transition flex flex-col items-center">
-                <span class="text-xs font-extrabold">[3] Good</span>
-                <span id="int-btn-3" class="text-[10px] opacity-80">3d</span>
-              </button>
-              <button onclick="rateCard(4)" class="py-1.5 px-2 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-800 hover:text-white border border-blue-300 transition flex flex-col items-center">
-                <span class="text-xs font-extrabold">[4] Easy</span>
-                <span id="int-btn-4" class="text-[10px] opacity-80">7d</span>
-              </button>
-            </div>
-          </div>
-
         </div>
 
+        <!-- Bottom Navigation Controls (44px Minimum Touch Targets) -->
+        <div class="w-full flex items-center justify-between gap-1 sm:gap-2 mt-2 sm:mt-3">
+          <button onclick="prevCard()" class="min-h-[44px] flex-1 sm:flex-none sm:px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-700 rounded-xl shadow-xs transition text-xs sm:text-sm active:scale-95 flex items-center justify-center">
+            &larr; <span class="hidden xs:inline ml-1">Prev</span>
+          </button>
+
+          <button onclick="flipCard()" class="min-h-[44px] flex-1 sm:flex-none sm:px-6 py-2 bg-amber-600 hover:bg-amber-700 font-bold text-white rounded-xl shadow-md transition text-xs sm:text-sm active:scale-95 flex items-center justify-center">
+            <span class="hidden sm:inline">Flip Card</span><span class="sm:hidden">Flip</span>
+          </button>
+
+          <button onclick="openQuestionsDirectly()" class="min-h-[44px] flex-1 sm:flex-none sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 font-bold text-white rounded-xl shadow-md transition text-xs sm:text-sm active:scale-95 flex items-center justify-center">
+            🧠 <span class="ml-1 hidden sm:inline">Deep Questions</span><span class="ml-1 sm:hidden">Quiz</span>
+          </button>
+
+          <button onclick="shuffleDeck()" title="Shuffle 81-Card Deck [Shortcut: S]"
+            class="min-h-[44px] flex-1 sm:flex-none sm:px-4 py-2 bg-white border border-slate-300 hover:bg-amber-50 hover:border-amber-400 font-bold text-slate-700 rounded-xl shadow-xs transition text-xs sm:text-sm active:scale-95 flex items-center justify-center gap-1">
+            <span>🔀</span> <span class="hidden xs:inline">Shuffle</span>
+          </button>
+
+          <button onclick="toggleQuickMode()" class="min-h-[44px] hidden md:flex px-3 py-2 bg-white border border-slate-300 hover:bg-amber-50 font-bold text-slate-700 rounded-xl shadow-xs transition text-xs items-center gap-1">
+            ⚡ Quick
+          </button>
+
+          <button onclick="nextCard()" class="min-h-[44px] flex-1 sm:flex-none sm:px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-700 rounded-xl shadow-xs transition text-xs sm:text-sm active:scale-95 flex items-center justify-center">
+            <span class="hidden xs:inline mr-1">Next</span> &rarr;
+          </button>
+        </div>
       </div>
+
+      <!-- RIGHT / SIDE: QUIZ CHOICE BANK OUTSIDE OF THE CARD (Responsive Slide-Over Drawer on Mobile, Side Panel on Desktop) -->
+      <div id="quiz-side-panel"
+        class="fixed inset-y-0 right-0 z-50 w-full max-w-sm sm:max-w-md bg-white border-l-2 border-slate-300 shadow-2xl p-3 sm:p-3.5 flex flex-col transition-transform duration-300 ease-in-out mobile-drawer-closed
+               lg:static lg:z-0 lg:w-auto lg:max-w-none lg:shadow-xl lg:border-2 lg:rounded-2xl lg:h-[580px] lg:col-span-5 xl:col-span-4 lg:transform-none">
+        
+        <!-- Side Bank Header -->
+        <div class="pb-2 border-b border-slate-200 shrink-0">
+          <div class="flex items-center justify-between gap-1 mb-2">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-900">Quiz Choice Bank</h4>
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="shuffleSideChoices()" title="Shuffle quiz choice pool"
+                class="text-[9px] font-extrabold px-1.5 py-0.5 rounded border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition flex items-center gap-0.5">
+                <span>🔀</span> Shuffle
+              </button>
+              <button onclick="toggleChoiceHints()" id="side-hints-toggle-btn" title="Toggle Card &amp; Step Label Hints"
+                class="text-[9px] font-extrabold px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-slate-600 hover:bg-amber-50 transition">
+                👁️ Hints: <span id="side-hints-state">OFF</span>
+              </button>
+              <span id="side-pool-stats" class="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                Choices
+              </span>
+              <!-- Close button on Mobile Drawer -->
+              <button onclick="toggleSideQuizPanel()" class="lg:hidden p-1 rounded-lg text-slate-500 hover:bg-slate-100 text-sm font-bold leading-none">&times;</button>
+            </div>
+          </div>
+
+          <!-- Section Switcher Tabs in Side Panel -->
+          <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-extrabold">
+            <button id="side-tab-btn-steps" onclick="switchSideTab('steps')"
+              class="py-1 px-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition text-center truncate">
+              📋 Steps
+            </button>
+            <button id="side-tab-btn-cards" onclick="switchSideTab('cards')"
+              class="py-1 px-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center truncate">
+              🔗 Cards
+            </button>
+            <button id="side-tab-btn-traps" onclick="switchSideTab('traps')"
+              class="py-1 px-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center truncate">
+              ⚠️ Traps
+            </button>
+          </div>
+
+          <!-- THE SINGLE UNIFIED SEARCH BAR (OUTSIDE THE CARD) -->
+          <div class="relative w-full mt-2">
+            <input type="text" id="side-quiz-search" oninput="handleSideSearchInput()"
+              placeholder="Search steps by keyword, #card..."
+              class="w-full pl-7 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white shadow-2xs transition">
+            <svg class="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <button onclick="clearSideSearch()" class="absolute right-2.5 top-1.5 text-xs text-slate-400 hover:text-slate-700 font-bold">&times;</button>
+          </div>
+        </div>
+
+        <!-- Draggable / Tap Choices Stream (Scrollable) -->
+        <div id="side-choice-stream" class="flex-1 overflow-y-auto custom-scrollbar my-2 pr-1 space-y-1.5">
+          <!-- Dynamically populated with Steps, Cards, or Traps -->
+        </div>
+
+        <!-- Side Bank Footer Guidance -->
+        <div class="pt-2 border-t border-slate-100 text-[10px] text-slate-400 shrink-0 flex items-center justify-between">
+          <span id="side-footer-tip" class="truncate pr-1">Tap or drag choice into card</span>
+          <button onclick="shuffleSideChoices()" class="text-indigo-600 font-bold hover:underline shrink-0 flex items-center gap-0.5">
+            🔀 Shuffle Pool
+          </button>
+        </div>
+      </div>
+
     </div>
 
-    <!-- Bottom Navigation Controls -->
-    <div class="w-full flex items-center justify-between gap-2.5 mt-3">
-      <button onclick="prevCard()" class="flex-1 sm:flex-none sm:px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-700 rounded-xl shadow-sm transition text-xs md:text-sm">
-        &larr; Prev
-      </button>
-
-      <button onclick="flipCard()" class="flex-1 sm:flex-none sm:px-7 py-2.5 bg-amber-600 hover:bg-amber-700 font-bold text-white rounded-xl shadow-md transition text-xs md:text-sm">
-        Flip Card
-      </button>
-
-      <button onclick="openQuestionsDirectly()" class="flex-1 sm:flex-none sm:px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 font-bold text-white rounded-xl shadow-md transition text-xs md:text-sm">
-        🧠 Deep Questions
-      </button>
-
-      <button onclick="shuffleDeck()" class="hidden md:flex px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-600 rounded-xl shadow-sm transition text-xs">
-        Shuffle
-      </button>
-
-      <button onclick="nextCard()" class="flex-1 sm:flex-none sm:px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 font-bold text-slate-700 rounded-xl shadow-sm transition text-xs md:text-sm">
-        Next &rarr;
+    <!-- Floating Quick Drawer Button on Mobile (< lg) -->
+    <div class="fixed bottom-4 right-4 z-30 lg:hidden">
+      <button onclick="toggleSideQuizPanel()"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-full shadow-xl border-2 border-white flex items-center gap-1.5 active:scale-95 transition">
+        <span>🎯 Choice Bank</span>
+        <span id="mobile-floating-badge" class="w-2 h-2 rounded-full bg-amber-400"></span>
       </button>
     </div>
 
@@ -1102,7 +1452,7 @@ const rawDeck = [
     num: "#62", name: "K.I.S.S. (Keep It Simple)", tagline: "Radical Compression", cat: "Style", col: "#e11d48",
     diag: "Our operational policy is 20 pages long and nobody on the floor actually follows it.",
     conc: "Radical cognitive compression to reduce complex operational policies into memorable heuristics.",
-    steps: "1. The Memo: 500-word detailed policy explanation.\n2. The Pitch: 3 bullet points.\n3. The Rule: 1 imperative sentence ('Never commit code on Friday afternoon without automated unit tests passing').\n4. The 3-Word Heuristic: 'Test before merge' or 'Inspect what's expected.'",
+    steps: "1. The Memo: 500-word detailed policy explanation.\n2. The Pitch: 3 bullet points.\n3. The Rule: 1 imperative sentence ('Never commit code on Friday afternoon without automated unit tests passing').\n4. The 3-Word Heuristic: 'Test before merge' or 'Inspect what is expected.'",
     trap: "The Triviality Trap: Stripping away so much context that the rule becomes a vague, meaningless platitude.",
     rb: ["Abstraction Ladder"], ra: ["Cut the Crap", "Vivid Words"],
     deepQ: "What is the 4-stage compression funnel in 'K.I.S.S.' (#62) for turning a 20-page SOP into floor-level behavior?",
@@ -1204,26 +1554,233 @@ const rawDeck = [
   }
 ];
 
-// ================= SPACED REPETITION (SM-2) & STORAGE ENGINE =================
+// ================= CARD RESOLUTION, STEP PARSING & CROSS-REFERENCE ENGINE =================
+const cardAliasMap = {
+  "tragedy": "#11",
+  "comedy": "#10",
+  "k.i.s.s.": "#62",
+  "goldilocks": "#60",
+  "rebirth": "#03",
+  "story spine": "#01"
+};
+
+function resolveCardRef(nameOrNum) {
+  if (!nameOrNum) return null;
+  const clean = String(nameOrNum).trim();
+  const lower = clean.toLowerCase();
+
+  let match = rawDeck.find(c => c.num.toLowerCase() === lower);
+  if (match) return { num: match.num, name: match.name, fullLabel: `${match.num} ${match.name}`, cat: match.cat, col: match.col };
+
+  if (cardAliasMap[lower]) {
+    match = rawDeck.find(c => c.num === cardAliasMap[lower]);
+    if (match) return { num: match.num, name: match.name, fullLabel: `${match.num} ${match.name}`, cat: match.cat, col: match.col };
+  }
+
+  match = rawDeck.find(c => c.name.toLowerCase() === lower);
+  if (match) return { num: match.num, name: match.name, fullLabel: `${match.num} ${match.name}`, cat: match.cat, col: match.col };
+
+  match = rawDeck.find(c => c.name.toLowerCase().startsWith(lower) || c.name.toLowerCase().includes(lower) || lower.includes(c.name.toLowerCase()));
+  if (match) return { num: match.num, name: match.name, fullLabel: `${match.num} ${match.name}`, cat: match.cat, col: match.col };
+
+  return { num: "#--", name: clean, fullLabel: clean, cat: "General", col: "#64748b" };
+}
+
+const stepKeywordCardLinks = [
+  { pattern: /\bAudience Profile\b/i, num: "#63" },
+  { pattern: /\bWhat's It About\??\b/i, num: "#13" },
+  { pattern: /\bWhy It Matters\b/i, num: "#15" },
+  { pattern: /\bMovie Time\b/i, num: "#21" },
+  { pattern: /\bData Detective\b/i, num: "#20" },
+  { pattern: /\bHero & Guide\b/i, num: "#31" },
+  { pattern: /\bGood & Evil\b/i, num: "#33" },
+  { pattern: /\bStory Spine\b/i, num: "#01" },
+  { pattern: /\bFive Ts\b/i, num: "#02" },
+  { pattern: /\bMan in a Hole\b/i, num: "#03" },
+  { pattern: /\bStory Board\b/i, num: "#64" },
+  { pattern: /\bRolls Royce Moment\b/i, num: "#50" },
+  { pattern: /\bShow and Tell\b/i, num: "#51" },
+  { pattern: /\bCut the Crap\b/i, num: "#52" },
+  { pattern: /\bPitch Perfect\b/i, num: "#42" },
+  { pattern: /\bOrder & Priority\b/i, num: "#66" },
+  { pattern: /\bThat Reminds Me\b/i, num: "#54" },
+  { pattern: /\bAbstraction Ladder\b/i, num: "#53" },
+  { pattern: /\bDrive, Drag, Dread\b/i, num: "#32" },
+  { pattern: /\bNew Nightmare\b/i, num: "#44" },
+  { pattern: /\bSimple Sales Stories\b/i, num: "#41" },
+  { pattern: /\bNo Easy Way\b/i, num: "#04" },
+  { pattern: /\bDown to Business\b/i, num: "#43" },
+  { pattern: /\bDragon & The City\b/i, num: "#14" },
+  { pattern: /\bHappy Endings\b/i, num: "#56" },
+  { pattern: /\bThe Quest\b/i, num: "#08" },
+  { pattern: /\bStory Listening\b/i, num: "#65" },
+  { pattern: /\bCharacter Flaws\b/i, num: "#34" },
+  { pattern: /\bSocial Proof\b/i, num: "#26" },
+  { pattern: /\bCuriosity Gap\b/i, num: "#22" },
+  { pattern: /\bFirst Word, Last Word\b/i, num: "#46" },
+  { pattern: /\bThree Great Conflicts\b/i, num: "#05" },
+  { pattern: /\bThe Baseline\b/i, num: "#23" },
+  { pattern: /\bFive Ws\b/i, num: "#24" },
+  { pattern: /\bStory Hooks\b/i, num: "#25" },
+  { pattern: /\bShow Your Working\b/i, num: "#55" },
+  { pattern: /\bWhat Next\?\b/i, num: "#47" },
+  { pattern: /\bEpic Fail\b/i, num: "#45" },
+  { pattern: /\bVivid Words\b/i, num: "#57" },
+  { pattern: /\bGoldilocks\b/i, num: "#60" },
+  { pattern: /\bStory Bank\b/i, num: "#67" },
+  { pattern: /\bAudience Empathy Map\b/i, num: "#68" },
+  { pattern: /\bAction Hero\b/i, num: "#37" },
+  { pattern: /\bSuperpowers\b/i, num: "#38" },
+  { pattern: /\bBig Fish, Little Fish\b/i, num: "#18" },
+  { pattern: /\bThe Butterfly Effect\b/i, num: "#19" },
+  { pattern: /\bTrust Me I'm an Expert\b/i, num: "#12" },
+  { pattern: /\bbaseline\b|\bstatus quo\b|\bground zero\b/i, num: "#23" },
+  { pattern: /\bhook\b|\b15 seconds\b|\bopening anchor\b/i, num: "#25" },
+  { pattern: /\bmicro-action\b|\b48-hour\b|\bnext step\b|\bask\b/i, num: "#47" },
+  { pattern: /\banalogy\b|\bfamiliar world\b/i, num: "#54" },
+  { pattern: /\bartifact\b|\bscreenshot\b|\bprop\b/i, num: "#51" },
+  { pattern: /\bguardrail\b|\bpost-mortem\b/i, num: "#45" },
+  { pattern: /\bprotagonist\b|\bhero\b/i, num: "#31" },
+  { pattern: /\banomaly\b|\boutlier\b|\bforensic\b/i, num: "#20" },
+  { pattern: /\bsensory\b|\bscene\b/i, num: "#21" },
+  { pattern: /\bactive voice\b|\bnominalization|\bbuzzword/i, num: "#52" },
+  { pattern: /\bshuffle test\b|\bindex cards\b/i, num: "#64" },
+  { pattern: /\bdiscarded\b|\btrade-off\b|\bworkaround\b/i, num: "#04" }
+];
+
+function parseCardStepsWithRefs(card) {
+  const rawLines = card.steps.split('\n').map(l => l.trim()).filter(Boolean);
+  const parsed = [];
+
+  rawLines.forEach((line, idx) => {
+    let badge = `Step ${idx + 1}`;
+    let title = "";
+    let detail = line;
+
+    const numMatch = line.match(/^(\d+\.|•|➔)\s*(.*)$/);
+    const bodyText = numMatch ? numMatch[2] : line;
+    if (numMatch && numMatch[1] !== '•' && numMatch[1] !== '➔') {
+      badge = `Step ${numMatch[1].replace('.', '')}`;
+    } else if (numMatch && (numMatch[1] === '•' || numMatch[1] === '➔')) {
+      badge = numMatch[1] === '➔' ? 'Rule' : 'Diagnostic';
+    } else if (line.endsWith(':')) {
+      badge = 'Phase';
+    }
+
+    const colonIdx = bodyText.indexOf(':');
+    if (colonIdx > 0 && colonIdx < 48) {
+      title = bodyText.slice(0, colonIdx).trim();
+      detail = bodyText.slice(colonIdx + 1).trim();
+    } else {
+      title = bodyText.length > 42 ? bodyText.slice(0, 42).trim() + '…' : bodyText;
+      detail = bodyText;
+    }
+
+    const refNums = new Set();
+    const explicitRegex = /#(00b|00|R[1-7]|W[1-3]|\d{2}b?)/g;
+    let m;
+    while ((m = explicitRegex.exec(line)) !== null) {
+      const candidateNum = `#${m[1]}`;
+      if (candidateNum !== card.num) refNums.add(candidateNum);
+    }
+
+    stepKeywordCardLinks.forEach(rule => {
+      if (rule.num !== card.num && rule.pattern.test(line)) {
+        refNums.add(rule.num);
+      }
+    });
+
+    if (refNums.size === 0 && idx === 0 && card.rb && card.rb.length > 0) {
+      const rbRef = resolveCardRef(card.rb[0]);
+      if (rbRef && rbRef.num !== '#--' && rbRef.num !== card.num) refNums.add(rbRef.num);
+    } else if (refNums.size === 0 && idx === rawLines.length - 1 && card.ra && card.ra.length > 0) {
+      const raRef = resolveCardRef(card.ra[0]);
+      if (raRef && raRef.num !== '#--' && raRef.num !== card.num) refNums.add(raRef.num);
+    }
+
+    const refs = Array.from(refNums)
+      .map(n => resolveCardRef(n))
+      .filter(r => r && r.num !== '#--');
+
+    parsed.push({
+      idx,
+      badge,
+      title,
+      detail,
+      raw: line,
+      refs
+    });
+  });
+
+  return parsed;
+}
+
+rawDeck.forEach(card => {
+  card.rbResolved = (card.rb || []).map(resolveCardRef);
+  card.raResolved = (card.ra || []).map(resolveCardRef);
+  card.structuredSteps = parseCardStepsWithRefs(card);
+  const trapParts = card.trap.split(':');
+  card.trapTitle = (trapParts[0] || 'Common Trap').trim();
+  card.trapBody = trapParts.slice(1).join(':').trim() || card.trap;
+});
+
+// ================= GLOBAL MASTER LIST OF EVERY STEP LINE ACROSS ALL 81 CARDS =================
+let allStepLines = [];
+
+function buildAllStepLines() {
+  allStepLines = [];
+  rawDeck.forEach(card => {
+    card.structuredSteps.forEach(st => {
+      allStepLines.push({
+        id: `${card.num}__${st.idx}`,
+        cardNum: card.num,
+        cardName: card.name,
+        stepIdx: st.idx,
+        badge: st.badge,
+        raw: st.raw,
+        title: st.title,
+        detail: st.detail,
+        refs: st.refs
+      });
+    });
+  });
+}
+
+// ================= SPACED REPETITION (SM-2) & INTERACTIVE STATE ENGINE =================
 const SRS_STORAGE_KEY = 'storyteller_tactics_srs_v2';
 const NOTES_STORAGE_KEY = 'storyteller_tactics_notes_v2';
+const QUIZ_ERRORS_KEY = 'storyteller_tactics_quiz_errors_v1';
 
-let srsState = {};     // { [cardNum]: { interval, reps, ease, due, status, lastReviewed } }
-let userNotes = {};    // { [cardNum]: "string" }
-let stepChecks = {};   // { [cardNum]: { [stepIndex]: boolean } }
+let srsState = {};       // { [cardNum]: { interval, reps, ease, due, status, lastReviewed } }
+let userNotes = {};      // { [cardNum]: "string" }
+let quizErrors = {};     // { [cardNum]: { hasError: true, failedSteps: {}, failedChain: false, failedTrap: false, timestamp: number } }
+let dndStepState = {};   // { [cardNum]: { [slotIdx]: stepId } }
+let dndChainState = {};  // { [cardNum]: { before: [cardNum, ...], after: [cardNum, ...] } }
+let dndTrapState = {};   // { [cardNum]: selectedCardNumWhoseTrapWasDropped }
+let activeTapChoice = null; // { type: 'step'|'card'|'trap', id: string, label: string } for mobile touch assign
+
+let showQuizHints = false; // When false, removes card numbers and step numbers from choices
+let choiceShuffleSeed = 0;
 
 let activePool = [...rawDeck];
 let currentIndex = 0;
 let isFlipped = false;
 let isBlindMode = false;
-let activeBackTab = 'steps'; // 'steps' | 'questions'
+let isQuickMode = false;
+let isSidePanelOpen = false; // Closed by default on mobile, handled responsively
+let frontQuickTrapPeek = false;
+let activeBackTab = 'steps';
+let activeSideTab = 'steps'; // 'steps' | 'cards' | 'traps'
 
-window.onload = () => {
+window.onload = function () {
+  buildAllStepLines();
   loadPersistedData();
   updateSRSStatsUI();
   populateJumpSelect();
   renderCard();
   setupKeyboardShortcuts();
+  setupTouchGestures();
+  initResponsiveDrawerState();
 };
 
 function loadPersistedData() {
@@ -1239,6 +1796,210 @@ function loadPersistedData() {
   } catch (e) {
     console.warn('Could not load user notes:', e);
   }
+  try {
+    const savedErrors = localStorage.getItem(QUIZ_ERRORS_KEY);
+    if (savedErrors) quizErrors = JSON.parse(savedErrors);
+  } catch (e) {
+    console.warn('Could not load quiz errors:', e);
+  }
+}
+
+function saveQuizErrors() {
+  try {
+    localStorage.setItem(QUIZ_ERRORS_KEY, JSON.stringify(quizErrors));
+  } catch (e) {
+    console.warn('Could not save quiz errors:', e);
+  }
+}
+
+function saveUserNotes() {
+  try {
+    localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(userNotes));
+  } catch (e) {
+    console.warn('Could not save user notes:', e);
+  }
+}
+
+// ================= BACKUP & RESTORE (JSON DOWNLOAD & UPLOAD) =================
+function exportProgressJSON() {
+  const exportPayload = {
+    app: "Storyteller Tactics SRS Studio",
+    version: "2.1",
+    exportedAt: new Date().toISOString(),
+    srsState,
+    userNotes,
+    quizErrors,
+    dndStepState,
+    dndChainState,
+    dndTrapState
+  };
+
+  const jsonStr = JSON.stringify(exportPayload, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `storyteller-tactics-progress-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Progress backup downloaded as JSON.');
+}
+
+function triggerImportFileInput() {
+  const fileInput = document.getElementById('import-progress-file');
+  if (fileInput) fileInput.click();
+}
+
+function handleImportFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (parsed.srsState && typeof parsed.srsState === 'object') srsState = parsed.srsState;
+      if (parsed.userNotes && typeof parsed.userNotes === 'object') userNotes = parsed.userNotes;
+      if (parsed.quizErrors && typeof parsed.quizErrors === 'object') quizErrors = parsed.quizErrors;
+      if (parsed.dndStepState && typeof parsed.dndStepState === 'object') dndStepState = parsed.dndStepState;
+      if (parsed.dndChainState && typeof parsed.dndChainState === 'object') dndChainState = parsed.dndChainState;
+      if (parsed.dndTrapState && typeof parsed.dndTrapState === 'object') dndTrapState = parsed.dndTrapState;
+
+      saveSRSState();
+      saveUserNotes();
+      saveQuizErrors();
+      updateSRSStatsUI();
+      applyFilters(true);
+      showToast('Progress successfully restored from backup!');
+    } catch (err) {
+      showToast('Error: Invalid JSON progress backup file.');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ================= QUIZ ERROR TRACKING & MISSED QUESTIONS ENGINE =================
+function recordStepError(cardNum, slotIdx, attemptedId) {
+  if (!quizErrors[cardNum]) {
+    quizErrors[cardNum] = { hasError: true, failedSteps: {}, failedChain: false, failedTrap: false, timestamp: Date.now() };
+  }
+  quizErrors[cardNum].hasError = true;
+  quizErrors[cardNum].failedSteps[slotIdx] = attemptedId;
+  quizErrors[cardNum].timestamp = Date.now();
+  saveQuizErrors();
+  updateSRSStatsUI();
+}
+
+function recordChainError(cardNum, droppedNum, targetSide) {
+  if (!quizErrors[cardNum]) {
+    quizErrors[cardNum] = { hasError: true, failedSteps: {}, failedChain: false, failedTrap: false, timestamp: Date.now() };
+  }
+  quizErrors[cardNum].hasError = true;
+  quizErrors[cardNum].failedChain = true;
+  quizErrors[cardNum].timestamp = Date.now();
+  saveQuizErrors();
+  updateSRSStatsUI();
+}
+
+function recordTrapError(cardNum, attemptedSourceNum) {
+  if (!quizErrors[cardNum]) {
+    quizErrors[cardNum] = { hasError: true, failedSteps: {}, failedChain: false, failedTrap: false, timestamp: Date.now() };
+  }
+  quizErrors[cardNum].hasError = true;
+  quizErrors[cardNum].failedTrap = true;
+  quizErrors[cardNum].timestamp = Date.now();
+  saveQuizErrors();
+  updateSRSStatsUI();
+}
+
+function checkCardQuizCompletion(cardNum) {
+  const card = rawDeck.find(c => c.num === cardNum);
+  if (!card) return;
+
+  const stepsState = dndStepState[cardNum] || {};
+  const stepsAllCorrect = card.structuredSteps.every((st, idx) => stepsState[idx] === `${cardNum}__${idx}`);
+
+  const chainState = dndChainState[cardNum] || { before: [], after: [] };
+  const expBefore = card.rbResolved.map(r => r.num);
+  const expAfter = card.raResolved.map(r => r.num);
+  const beforeCorrect = expBefore.every(n => chainState.before.includes(n)) && chainState.before.every(n => expBefore.includes(n));
+  const afterCorrect = expAfter.every(n => chainState.after.includes(n)) && chainState.after.every(n => expAfter.includes(n));
+
+  const trapCorrect = dndTrapState[cardNum] === cardNum;
+
+  if (stepsAllCorrect && beforeCorrect && afterCorrect && trapCorrect) {
+    if (quizErrors[cardNum] && quizErrors[cardNum].hasError) {
+      delete quizErrors[cardNum];
+      saveQuizErrors();
+      updateSRSStatsUI();
+      const banner = document.getElementById('card-error-banner');
+      if (banner) banner.classList.add('hidden');
+      showToast('🎉 All quiz sections correct! Card cleared from Missed list.');
+    }
+  }
+}
+
+function clearCardErrorFlag() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  if (quizErrors[card.num]) {
+    delete quizErrors[card.num];
+    saveQuizErrors();
+    updateSRSStatsUI();
+  }
+  const banner = document.getElementById('card-error-banner');
+  if (banner) banner.classList.add('hidden');
+  showToast(`Card ${card.num} removed from Missed questions.`);
+  if (document.getElementById('srs-filter').value === 'ERRORS') {
+    applyFilters(false);
+  }
+}
+
+function toggleChoiceHints() {
+  showQuizHints = !showQuizHints;
+  const stateLabel = document.getElementById('side-hints-state');
+  const btn = document.getElementById('side-hints-toggle-btn');
+  if (stateLabel) stateLabel.innerText = showQuizHints ? 'ON' : 'OFF';
+  if (btn) {
+    btn.className = showQuizHints
+      ? 'text-[9px] font-extrabold px-1.5 py-0.5 rounded border border-amber-400 bg-amber-100 text-amber-950 transition'
+      : 'text-[9px] font-extrabold px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50 text-slate-600 hover:bg-amber-50 transition';
+  }
+  renderSideChoiceBank();
+  showToast(showQuizHints ? 'Hints enabled (Card labels visible)' : 'Quiz Mode (Answers hidden on choices)');
+}
+
+function shuffleSideChoices() {
+  choiceShuffleSeed = Math.random();
+  renderSideChoiceBank();
+  showToast('Choices shuffled.');
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('app-toast');
+  const text = document.getElementById('app-toast-text');
+  if (!toast || !text) return;
+  text.innerText = msg;
+  toast.classList.remove('hidden');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 2200);
+}
+
+function initResponsiveDrawerState() {
+  if (window.innerWidth >= 1024) {
+    isSidePanelOpen = true;
+    const panel = document.getElementById('quiz-side-panel');
+    if (panel) {
+      panel.classList.remove('mobile-drawer-closed');
+      panel.classList.add('mobile-drawer-open');
+    }
+  }
 }
 
 function saveSRSState() {
@@ -1252,11 +2013,11 @@ function saveSRSState() {
 function getCardSRS(cardNum) {
   if (!srsState[cardNum]) {
     return {
-      interval: 0,      // days (0 = new or intraday learning)
+      interval: 0,
       reps: 0,
       ease: 2.5,
-      due: 0,           // 0 = unseen/new
-      status: 'new',    // 'new' | 'learning' | 'review' | 'mastered'
+      due: 0,
+      status: 'new',
       lastReviewed: null
     };
   }
@@ -1269,10 +2030,11 @@ function isCardDue(cardNum) {
   return Date.now() >= rec.due;
 }
 
-// Compute preview intervals for the 4 rating buttons
 function computeNextIntervalPreview(cardNum, grade) {
   const rec = getCardSRS(cardNum);
-  let { interval, reps, ease } = rec;
+  const interval = rec.interval;
+  const reps = rec.reps;
+  const ease = rec.ease;
 
   if (grade === 1) {
     return { label: '10m', days: 0.007, nextStatus: 'learning', nextEase: Math.max(1.3, ease - 0.2), nextReps: 0 };
@@ -1310,16 +2072,13 @@ function rateCard(grade) {
   saveSRSState();
   updateSRSStatsUI();
 
-  // If user is in a filtered SRS view (like DUE), re-evaluate or advance smoothly
   const srsFilterVal = document.getElementById('srs-filter').value;
   if (srsFilterVal !== 'ALL') {
-    const prevCardNum = card.num;
     applyFilters(false);
     if (activePool.length === 0) {
       renderEmptyState();
       return;
     }
-    // Keep index in bounds
     currentIndex = currentIndex % activePool.length;
     isFlipped = false;
     setTimeout(renderCard, 80);
@@ -1333,9 +2092,13 @@ function updateSRSStatsUI() {
   let learningCount = 0;
   let newCount = 0;
   let masteredCount = 0;
+  let errorCount = 0;
   const now = Date.now();
 
   rawDeck.forEach(c => {
+    if (quizErrors[c.num] && quizErrors[c.num].hasError) {
+      errorCount++;
+    }
     const r = getCardSRS(c.num);
     if (r.status === 'new') {
       newCount++;
@@ -1346,12 +2109,13 @@ function updateSRSStatsUI() {
     }
   });
 
+  const errEl = document.getElementById('stat-errors');
+  if (errEl) errEl.innerText = errorCount;
   document.getElementById('stat-due').innerText = dueCount;
   document.getElementById('stat-learning').innerText = learningCount;
   document.getElementById('stat-new').innerText = newCount;
   document.getElementById('stat-mastered').innerText = masteredCount;
 
-  // Weighted Mastery calculation (Mastered = 1.0, Review = 0.5, Learning = 0.2)
   let scoreSum = 0;
   rawDeck.forEach(c => {
     const r = getCardSRS(c.num);
@@ -1365,11 +2129,25 @@ function updateSRSStatsUI() {
 }
 
 function resetSRSProgress() {
-  if (!confirm('Reset all Spaced Repetition intervals and mastery stats for all 81 cards? (Your personal card notes will be kept.)')) return;
+  document.getElementById('reset-modal').classList.remove('hidden');
+}
+
+function closeResetModal() {
+  document.getElementById('reset-modal').classList.add('hidden');
+}
+
+function confirmResetSRS() {
   srsState = {};
+  quizErrors = {};
+  dndStepState = {};
+  dndChainState = {};
+  dndTrapState = {};
   saveSRSState();
+  saveQuizErrors();
   updateSRSStatsUI();
+  closeResetModal();
   applyFilters(true);
+  showToast('Spaced Repetition & quiz states reset.');
 }
 
 // ================= RENDERING & UI LOGIC =================
@@ -1401,6 +2179,17 @@ function formatDueRelative(dueTimestamp) {
   return `Due in ${days}d`;
 }
 
+function createNumberedCardChip(refObj, extraClasses = '') {
+  if (!refObj) return '';
+  const safeNum = refObj.num.replace(/'/g, "\\'");
+  return `<button onclick="jumpToCardByNumOrName('${safeNum}'); event.stopPropagation();" 
+    title="Jump to ${refObj.fullLabel} (${refObj.cat})"
+    class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-amber-100 hover:text-amber-950 border border-slate-300 text-slate-800 transition cursor-pointer inline-flex items-center gap-1 ${extraClasses}">
+    <span class="font-mono font-extrabold text-amber-800">${refObj.num}</span>
+    <span>${refObj.name}</span>
+  </button>`;
+}
+
 function renderCard() {
   if (activePool.length === 0) {
     renderEmptyState();
@@ -1423,7 +2212,6 @@ function renderCard() {
     sel.value = currentIndex;
   }
 
-  // SRS Badge & Meta
   const badgeEl = document.getElementById('card-srs-badge');
   const metaEl = document.getElementById('card-srs-meta');
   const dueText = formatDueRelative(srs.due);
@@ -1446,7 +2234,8 @@ function renderCard() {
     metaEl.innerText = `${dueText} • EF ${srs.ease} • Streak ${srs.reps}`;
   }
 
-  // Blind Mode Handling on Front
+  updateQuickModeButtonsUI();
+
   const identityBlock = document.getElementById('front-identity-block');
   const blindMask = document.getElementById('front-blind-mask');
   if (isBlindMode) {
@@ -1457,7 +2246,6 @@ function renderCard() {
     blindMask.classList.add('hidden');
   }
 
-  // Front Content
   document.getElementById('front-category').innerText = card.cat;
   document.getElementById('front-category').style.backgroundColor = card.col;
   document.getElementById('front-due-status').innerText = srs.status === 'new' ? '' : dueText;
@@ -1468,105 +2256,88 @@ function renderCard() {
   document.getElementById('front-diagnostic').innerText = `"${card.diag}"`;
   document.getElementById('front-deep-question').innerText = card.deepQ;
 
-  // Back Header & Execution Tab Content
+  const frontStdPanels = document.getElementById('front-standard-panels');
+  const frontQuickPanel = document.getElementById('front-quick-panel');
+  const frontConceptBox = document.getElementById('front-concept-box');
+
+  if (isQuickMode) {
+    frontStdPanels.classList.add('hidden');
+    frontQuickPanel.classList.remove('hidden');
+    frontConceptBox.className = 'mt-2 bg-slate-50 border-l-4 border-amber-500 p-2.5 rounded-r-xl';
+    renderFrontQuickMode(card);
+  } else {
+    frontStdPanels.classList.remove('hidden');
+    frontQuickPanel.classList.add('hidden');
+    frontConceptBox.className = 'mt-3 bg-slate-50 border-l-4 border-slate-300 p-3.5 rounded-r-xl';
+  }
+
   document.getElementById('back-name').innerText = card.name;
   document.getElementById('back-number').innerText = card.num;
   document.getElementById('back-category-dot').style.backgroundColor = card.col;
-  document.getElementById('back-steps-content').innerText = card.steps;
-  document.getElementById('back-trap-content').innerText = card.trap;
 
-  const createChip = (name) => {
-    return `<button onclick="jumpToCardByName('${name.replace(/'/g, "\\'")}'); event.stopPropagation();" 
-      class="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 hover:bg-amber-100 hover:text-amber-900 border border-slate-300 text-slate-700 transition cursor-pointer">
-      ${name}
-    </button>`;
-  };
+  renderBackExecutionSteps(card);
+
+  document.getElementById('back-trap-content').innerText = isQuickMode ? card.trapTitle : card.trap;
 
   const beforeContainer = document.getElementById('back-before-chips');
-  beforeContainer.innerHTML = card.rb && card.rb.length 
-    ? card.rb.map(createChip).join('') 
+  beforeContainer.innerHTML = card.rbResolved && card.rbResolved.length 
+    ? card.rbResolved.map(r => createNumberedCardChip(r)).join('') 
     : '<span class="text-[11px] text-slate-400 italic">None</span>';
 
   const afterContainer = document.getElementById('back-after-chips');
-  afterContainer.innerHTML = card.ra && card.ra.length 
-    ? card.ra.map(createChip).join('') 
+  afterContainer.innerHTML = card.raResolved && card.raResolved.length 
+    ? card.raResolved.map(r => createNumberedCardChip(r)).join('') 
     : '<span class="text-[11px] text-slate-400 italic">None</span>';
 
-  // Render In-Depth Questions Tab (4-Layer Active Recall Suite)
   renderDeepQuestionsTab(card);
 
-  // Update SRS interval labels on the 4 buttons
   for (let g = 1; g <= 4; g++) {
     const preview = computeNextIntervalPreview(card.num, g);
     document.getElementById(`int-btn-${g}`).innerText = preview.label;
   }
 
-  // Ensure active back tab visibility
   applyBackTabUI();
 }
 
-function renderDeepQuestionsTab(card) {
-  // Q1: Bespoke Applied Scenario Challenge
-  document.getElementById('q-scenario-prompt').innerText = card.deepQ;
-  document.getElementById('q-scenario-answer').innerText = card.deepA;
+function renderFrontQuickMode(card) {
+  document.getElementById('front-quick-diag').innerText = `"${card.diag}"`;
 
-  // Q2: Interactive Step-by-Step Checklist
-  const rawLines = card.steps.split('\n').map(s => s.trim()).filter(Boolean);
-  const checklistEl = document.getElementById('q-steps-checklist');
-  if (!stepChecks[card.num]) stepChecks[card.num] = {};
-
-  checklistEl.innerHTML = rawLines.map((line, idx) => {
-    const checked = stepChecks[card.num][idx] ? 'checked' : '';
+  const stepsHtml = card.structuredSteps.map(st => {
+    const refsHtml = st.refs.map(r => createNumberedCardChip(r, 'text-[10px] px-1.5 py-0')).join('');
     return `
-      <label class="flex items-start gap-2 p-1.5 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer text-xs text-slate-800">
-        <input type="checkbox" ${checked} onchange="toggleStepCheck('${card.num}', ${idx})" class="mt-0.5 rounded text-amber-600 focus:ring-amber-500">
-        <span class="leading-snug">${line}</span>
-      </label>
+      <div class="bg-white p-2 rounded-lg border border-slate-200 flex flex-col justify-between gap-1">
+        <div class="flex items-start gap-1.5">
+          <span class="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 shrink-0">${st.badge}</span>
+          <span class="text-xs font-bold text-slate-800 leading-snug">${st.title}</span>
+        </div>
+        ${refsHtml ? `<div class="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-100"><span class="text-[9px] font-bold text-slate-400 uppercase">Refs:</span>${refsHtml}</div>` : ''}
+      </div>
     `;
   }).join('');
-  updateStepScoreUI(card.num, rawLines.length);
+  document.getElementById('front-quick-steps').innerHTML = stepsHtml;
 
-  // Q3: Trap & Failure Mode Probe
-  const trapParts = card.trap.split(':');
-  const trapName = trapParts[0] || 'The Common Trap';
-  document.getElementById('q-trap-prompt').innerText =
-    `When executing "${card.name}", how can your team unintentionally fall into "${trapName}", and what specific guardrail prevents it?`;
-  document.getElementById('q-trap-answer').innerText = card.trap;
+  const trapEl = document.getElementById('front-quick-trap');
+  trapEl.innerText = frontQuickTrapPeek ? card.trap : `${card.trapTitle} (Click Peek to view full detail)`;
 
-  // Q4: Chaining & Personal Workspace Application
-  const beforeStr = card.rb && card.rb.length ? card.rb.join(', ') : 'Initial Discovery';
-  const afterStr = card.ra && card.ra.length ? card.ra.join(', ') : 'Final Delivery';
-  document.getElementById('q-chain-prompt').innerText =
-    `Workflow Chain: [${beforeStr}] ➔ ${card.name} (${card.num}) ➔ [${afterStr}]. Draft your own real-world application of ${card.name} below:`;
+  document.getElementById('front-quick-before').innerHTML = card.rbResolved.length
+    ? card.rbResolved.map(r => createNumberedCardChip(r, 'text-[10px]')).join('')
+    : '<span class="text-[10px] text-slate-400 italic">None</span>';
 
-  document.getElementById('card-user-note').value = userNotes[card.num] || '';
+  document.getElementById('front-quick-after').innerHTML = card.raResolved.length
+    ? card.raResolved.map(r => createNumberedCardChip(r, 'text-[10px]')).join('')
+    : '<span class="text-[10px] text-slate-400 italic">None</span>';
 }
 
-function toggleStepCheck(cardNum, idx) {
-  if (!stepChecks[cardNum]) stepChecks[cardNum] = {};
-  stepChecks[cardNum][idx] = !stepChecks[cardNum][idx];
-  const card = activePool[currentIndex];
-  const total = card.steps.split('\n').map(s => s.trim()).filter(Boolean).length;
-  updateStepScoreUI(cardNum, total);
+function toggleFrontQuickTrapReveal() {
+  frontQuickTrapPeek = !frontQuickTrapPeek;
+  if (activePool.length > 0) renderFrontQuickMode(activePool[currentIndex]);
 }
 
-function updateStepScoreUI(cardNum, total) {
-  const checks = stepChecks[cardNum] || {};
-  const count = Object.values(checks).filter(Boolean).length;
-  document.getElementById('q-step-score').innerText = `${count}/${total} steps verified`;
-}
-
-function saveUserCardNote() {
-  if (activePool.length === 0) return;
-  const card = activePool[currentIndex];
-  const val = document.getElementById('card-user-note').value;
-  userNotes[card.num] = val;
-  try {
-    localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(userNotes));
-    const ind = document.getElementById('note-save-indicator');
-    ind.innerText = '✓ Saved to browser';
-    setTimeout(() => { ind.innerText = 'Auto-saved locally'; }, 1500);
-  } catch (e) {}
+function renderBackExecutionSteps(card) {
+  const stepsContainer = document.getElementById('back-steps-content');
+  if (!stepsContainer) return;
+  // Standard view: clean, formatted multiline execution steps matching Image 1
+  stepsContainer.innerText = card.steps;
 }
 
 function switchBackTab(tabName) {
@@ -1580,16 +2351,807 @@ function applyBackTabUI() {
   const btnSteps = document.getElementById('tab-btn-steps');
   const btnQuestions = document.getElementById('tab-btn-questions');
 
+  if (!stepsTab || !questionsTab || !btnSteps || !btnQuestions) return;
+
   if (activeBackTab === 'steps') {
     stepsTab.classList.remove('hidden');
     questionsTab.classList.add('hidden');
-    btnSteps.className = 'px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm transition';
-    btnQuestions.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1';
+    btnSteps.className = 'px-2 sm:px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-xs transition';
+    btnQuestions.className = 'px-2 sm:px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1';
   } else {
     stepsTab.classList.add('hidden');
     questionsTab.classList.remove('hidden');
-    btnSteps.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition';
-    btnQuestions.className = 'px-2.5 py-1 rounded-md bg-white text-indigo-700 shadow-sm transition flex items-center gap-1';
+    btnSteps.className = 'px-2 sm:px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition';
+    btnQuestions.className = 'px-2 sm:px-2.5 py-1 rounded-md bg-white text-indigo-700 shadow-xs transition flex items-center gap-1';
+  }
+}
+
+// ================= INTERACTIVE QUESTIONS & DRAG-AND-DROP SUITE =================
+function ensureCardDndState(card) {
+  if (!dndStepState[card.num] || !Array.isArray(dndStepState[card.num])) {
+    dndStepState[card.num] = [];
+  }
+  if (!dndChainState[card.num]) {
+    dndChainState[card.num] = { before: [], after: [] };
+  }
+}
+
+function renderDeepQuestionsTab(card) {
+  ensureCardDndState(card);
+
+  // Show / hide error practice banner
+  const errBanner = document.getElementById('card-error-banner');
+  if (errBanner) {
+    if (quizErrors[card.num] && quizErrors[card.num].hasError) {
+      errBanner.classList.remove('hidden');
+    } else {
+      errBanner.classList.add('hidden');
+    }
+  }
+
+  renderStepDropZones(card);
+  renderChainDndZones(card);
+  renderTrapDropZone(card);
+  renderSideChoiceBank();
+
+  document.getElementById('q-scenario-prompt').innerText = card.deepQ;
+  document.getElementById('q-scenario-answer').innerText = card.deepA;
+
+  const beforeStr = card.rbResolved && card.rbResolved.length
+    ? card.rbResolved.map(r => r.fullLabel).join(', ')
+    : 'Initial Discovery';
+  const afterStr = card.raResolved && card.raResolved.length
+    ? card.raResolved.map(r => r.fullLabel).join(', ')
+    : 'Final Delivery';
+  document.getElementById('q-chain-prompt').innerText =
+    `Workflow Chain: [${beforeStr}] ➔ ${card.num} ${card.name} ➔ [${afterStr}]. Draft your real-world application of ${card.name} below:`;
+
+  document.getElementById('card-user-note').value = userNotes[card.num] || '';
+}
+
+// ================= OUTSIDE-THE-CARD SIDE QUIZ BANK CONTROLLER =================
+function toggleSideQuizPanel() {
+  const panel = document.getElementById('quiz-side-panel');
+  const backdrop = document.getElementById('mobile-drawer-backdrop');
+  const cardCol = document.getElementById('card-column');
+  if (!panel) return;
+
+  isSidePanelOpen = !isSidePanelOpen;
+
+  if (window.innerWidth < 1024) {
+    // Mobile slide-over drawer behavior
+    if (isSidePanelOpen) {
+      panel.classList.remove('mobile-drawer-closed');
+      panel.classList.add('mobile-drawer-open');
+      if (backdrop) backdrop.classList.remove('hidden');
+    } else {
+      panel.classList.remove('mobile-drawer-open');
+      panel.classList.add('mobile-drawer-closed');
+      if (backdrop) backdrop.classList.add('hidden');
+    }
+  } else {
+    // Desktop side panel toggle behavior
+    if (isSidePanelOpen) {
+      panel.classList.remove('hidden');
+      if (cardCol) cardCol.className = 'lg:col-span-7 xl:col-span-8 flex flex-col items-center w-full transition-all duration-300';
+    } else {
+      panel.classList.add('hidden');
+      if (cardCol) cardCol.className = 'lg:col-span-12 flex flex-col items-center w-full transition-all duration-300';
+    }
+  }
+}
+
+function openSideBankWithTab(tabName) {
+  switchSideTab(tabName);
+  if (!isSidePanelOpen) {
+    toggleSideQuizPanel();
+  }
+}
+
+function selectChoiceForTapAssign(type, id, label) {
+  activeTapChoice = { type, id, label };
+  const banner = document.getElementById('tap-placement-banner');
+  const title = document.getElementById('tap-selected-title');
+  if (banner && title) {
+    title.innerText = `[${type.toUpperCase()}] ${label}`;
+    banner.classList.remove('hidden');
+  }
+  showToast(`Selected "${label}". Tap target slot in card to place.`);
+  // Re-render side choices to highlight active item
+  renderSideChoiceBank();
+  // On mobile, if a choice is tapped, auto close the drawer after a moment or let user close
+  if (window.innerWidth < 1024) {
+    setTimeout(() => {
+      toggleSideQuizPanel();
+    }, 450);
+  }
+}
+
+function clearTapSelection() {
+  activeTapChoice = null;
+  const banner = document.getElementById('tap-placement-banner');
+  if (banner) banner.classList.add('hidden');
+  renderSideChoiceBank();
+}
+
+function handleSlotTap(slotTargetId, type) {
+  if (!activeTapChoice) return;
+  const card = activePool[currentIndex];
+  if (!card) return;
+
+  if (type === 'steps_unified' && activeTapChoice.type === 'step') {
+    appendStepToUnifiedZone(activeTapChoice.id);
+    clearTapSelection();
+    showToast(`Added to steps sequence`);
+  } else if (type === 'chain_before' && activeTapChoice.type === 'card') {
+    addCardToChainZone(activeTapChoice.id, 'before');
+    clearTapSelection();
+    showToast(`Added ${activeTapChoice.id} to Run Before`);
+  } else if (type === 'chain_after' && activeTapChoice.type === 'card') {
+    addCardToChainZone(activeTapChoice.id, 'after');
+    clearTapSelection();
+    showToast(`Added ${activeTapChoice.id} to Run After`);
+  } else if (type === 'trap' && activeTapChoice.type === 'trap') {
+    selectTrapForCurrentCard(activeTapChoice.id);
+    clearTapSelection();
+    showToast(`Placed Common Trap`);
+  } else {
+    showToast(`Item type doesn't match target slot.`);
+  }
+}
+
+function switchSideTab(tabName) {
+  activeSideTab = tabName;
+  const searchInput = document.getElementById('side-quiz-search');
+  const btnSteps = document.getElementById('side-tab-btn-steps');
+  const btnCards = document.getElementById('side-tab-btn-cards');
+  const btnTraps = document.getElementById('side-tab-btn-traps');
+
+  btnSteps.className = 'py-1 px-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center truncate';
+  btnCards.className = 'py-1 px-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center truncate';
+  btnTraps.className = 'py-1 px-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center truncate';
+
+  if (tabName === 'steps') {
+    btnSteps.className = 'py-1 px-1.5 rounded-lg bg-white text-slate-900 shadow-xs font-black transition text-center truncate';
+    if (searchInput) searchInput.placeholder = 'Search step lines by keyword, #card, text...';
+    document.getElementById('side-footer-tip').innerText = 'Tap/drag step into slot or click +S1, +S2...';
+  } else if (tabName === 'cards') {
+    btnCards.className = 'py-1 px-1.5 rounded-lg bg-white text-slate-900 shadow-xs font-black transition text-center truncate';
+    if (searchInput) searchInput.placeholder = 'Search 81 cards by #number, name, category...';
+    document.getElementById('side-footer-tip').innerText = 'Tap/drag card or click +B or +A';
+  } else if (tabName === 'traps') {
+    btnTraps.className = 'py-1 px-1.5 rounded-lg bg-white text-slate-900 shadow-xs font-black transition text-center truncate';
+    if (searchInput) searchInput.placeholder = 'Search 81 common traps by keyword...';
+    document.getElementById('side-footer-tip').innerText = 'Tap/drag trap or click Drop Trap';
+  }
+
+  renderSideChoiceBank();
+}
+
+function handleSideSearchInput() {
+  renderSideChoiceBank();
+}
+
+function clearSideSearch() {
+  const searchInput = document.getElementById('side-quiz-search');
+  if (searchInput) searchInput.value = '';
+  renderSideChoiceBank();
+}
+
+function renderSideChoiceBank() {
+  if (activeSideTab === 'steps') {
+    renderSideSteps();
+  } else if (activeSideTab === 'cards') {
+    renderSideCards();
+  } else if (activeSideTab === 'traps') {
+    renderSideTraps();
+  }
+}
+
+// Side Bank: Steps (Answers hidden by default unless Hints are toggled ON)
+function renderSideSteps() {
+  const stream = document.getElementById('side-choice-stream');
+  const stats = document.getElementById('side-pool-stats');
+  if (!stream || !stats) return;
+
+  const currentCard = activePool[currentIndex];
+  const query = (document.getElementById('side-quiz-search')?.value || '').toLowerCase().trim();
+
+  let filtered = [];
+  if (query) {
+    filtered = allStepLines.filter(s =>
+      s.raw.toLowerCase().includes(query) ||
+      s.title.toLowerCase().includes(query) ||
+      s.detail.toLowerCase().includes(query) ||
+      (showQuizHints && (s.cardNum.toLowerCase().includes(query) || s.cardName.toLowerCase().includes(query)))
+    );
+  } else {
+    const currentSteps = allStepLines.filter(s => s.cardNum === currentCard.num);
+    const otherSteps = allStepLines.filter(s => s.cardNum !== currentCard.num);
+    const shuffledCurrent = [...currentSteps].sort(() => 0.5 - Math.random());
+    const sampleDistractors = [...otherSteps].sort(() => 0.5 - Math.random()).slice(0, 8);
+    filtered = [...shuffledCurrent, ...sampleDistractors].sort(() => 0.5 - Math.random());
+  }
+
+  stats.innerText = `${filtered.length} Steps`;
+
+  const addStepBtnHtml = (stepId) => {
+    return `<button onclick="appendStepToUnifiedZone('${stepId}'); event.stopPropagation();" title="Add to steps sequence"
+      class="min-h-[28px] px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-600 text-amber-900 hover:text-white font-extrabold text-[10px] sm:text-[11px] transition flex items-center gap-1 shadow-2xs">
+      <span>+</span> Add Step
+    </button>`;
+  };
+
+  stream.innerHTML = filtered.map(s => {
+    const isSelected = activeTapChoice && activeTapChoice.type === 'step' && activeTapChoice.id === s.id;
+    const selectedClass = isSelected ? 'tap-selected-chip ring-2 ring-indigo-600 bg-indigo-50' : '';
+    const safeTitle = s.title.replace(/'/g, "\\'");
+
+    const hintLabelHtml = showQuizHints
+      ? `<div class="flex items-center gap-1.5 truncate mb-1">
+           <span class="text-[9px] font-mono px-1.5 py-0.2 rounded border bg-amber-100 text-amber-950 border-amber-300 font-extrabold">${s.cardNum}</span>
+           <span class="text-[10px] font-bold text-slate-600 truncate">${s.cardName}</span>
+           <span class="text-[9px] font-extrabold text-amber-800">[${s.badge}]</span>
+         </div>`
+      : `<div class="flex items-center justify-between gap-1 mb-1">
+           <span class="text-[9px] uppercase font-bold text-amber-900 bg-amber-100/70 px-1.5 py-0.5 rounded">Action Choice</span>
+           <span class="text-[9px] text-slate-400">Match &amp; sequence</span>
+         </div>`;
+
+    return `
+      <div draggable="true" ondragstart="handleDragStartStep(event, '${s.id}')"
+        onclick="selectChoiceForTapAssign('step', '${s.id}', '${safeTitle}')"
+        class="draggable-chip bg-white hover:bg-amber-50/70 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-1 shadow-2xs hover:border-amber-300 transition ${selectedClass}">
+        ${hintLabelHtml}
+        <div class="flex items-start justify-between gap-1.5">
+          <div class="font-bold text-slate-900 text-xs leading-snug flex-1">
+            ${s.title}
+          </div>
+          <div class="shrink-0">
+            ${addStepBtnHtml(s.id)}
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-600 leading-snug line-clamp-2">${s.detail}</p>
+      </div>
+    `;
+  }).join('');
+}
+
+// Side Bank: Cards for Run Before & Run After
+function renderSideCards() {
+  const stream = document.getElementById('side-choice-stream');
+  const stats = document.getElementById('side-pool-stats');
+  if (!stream || !stats) return;
+
+  const query = (document.getElementById('side-quiz-search')?.value || '').toLowerCase().trim();
+  const filtered = rawDeck.filter(c => {
+    if (!query) return true;
+    return c.num.toLowerCase().includes(query) ||
+           c.name.toLowerCase().includes(query) ||
+           c.cat.toLowerCase().includes(query) ||
+           c.tagline.toLowerCase().includes(query) ||
+           c.diag.toLowerCase().includes(query);
+  });
+
+  stats.innerText = `${filtered.length} Cards`;
+
+  stream.innerHTML = filtered.map(c => {
+    const isSelected = activeTapChoice && activeTapChoice.type === 'card' && activeTapChoice.id === c.num;
+    const selectedClass = isSelected ? 'tap-selected-chip ring-2 ring-indigo-600 bg-indigo-50' : '';
+
+    return `
+      <div draggable="true" ondragstart="handleDragStartCard(event, '${c.num}')"
+        onclick="selectChoiceForTapAssign('card', '${c.num}', '${c.num} ${c.name}')"
+        class="draggable-chip bg-white hover:bg-blue-50/60 border border-slate-200 rounded-xl p-2 text-xs flex items-center justify-between gap-2 shadow-2xs transition ${selectedClass}">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="font-mono font-extrabold text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded text-[10px]">${c.num}</span>
+          <div class="truncate">
+            <span class="font-bold text-slate-900 block truncate">${c.name}</span>
+            <span class="text-[10px] text-slate-400 block truncate">${c.cat} • ${c.tagline}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button onclick="addCardToChainZone('${c.num}', 'before'); event.stopPropagation();" title="Add to Run Before"
+            class="min-h-[28px] px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-600 text-blue-900 hover:text-white font-extrabold text-[10px] transition">+B</button>
+          <button onclick="addCardToChainZone('${c.num}', 'after'); event.stopPropagation();" title="Add to Run After"
+            class="min-h-[28px] px-2 py-0.5 rounded bg-emerald-100 hover:bg-emerald-600 text-emerald-900 hover:text-white font-extrabold text-[10px] transition">+A</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Side Bank: Traps (Without revealing which card owns the trap)
+function renderSideTraps() {
+  const stream = document.getElementById('side-choice-stream');
+  const stats = document.getElementById('side-pool-stats');
+  if (!stream || !stats) return;
+
+  const currentCard = activePool[currentIndex];
+  const query = (document.getElementById('side-quiz-search')?.value || '').toLowerCase().trim();
+
+  let filtered = rawDeck.filter(c => {
+    if (!query) return true;
+    return c.trap.toLowerCase().includes(query) ||
+           (showQuizHints && (c.name.toLowerCase().includes(query) || c.num.toLowerCase().includes(query)));
+  });
+
+  if (!query) {
+    // Shuffle traps so the current card's trap isn't in a predictable position
+    filtered = [...filtered].sort(() => 0.5 - Math.random());
+  }
+
+  stats.innerText = `${filtered.length} Traps`;
+
+  stream.innerHTML = filtered.map(c => {
+    const isSelected = activeTapChoice && activeTapChoice.type === 'trap' && activeTapChoice.id === c.num;
+    const selectedClass = isSelected ? 'tap-selected-chip ring-2 ring-indigo-600 bg-indigo-50' : '';
+    const safeTrapTitle = c.trapTitle.replace(/'/g, "\\'");
+
+    const hintLabelHtml = showQuizHints
+      ? `<div class="flex items-center gap-1.5 truncate mb-1">
+           <span class="text-[9px] font-mono px-1.5 py-0.2 rounded border bg-rose-100 text-rose-950 border-rose-300 font-extrabold">${c.num}</span>
+           <span class="text-[10px] font-bold text-slate-600 truncate">${c.name}</span>
+         </div>`
+      : `<div class="flex items-center justify-between gap-1 mb-1">
+           <span class="text-[9px] uppercase font-bold text-rose-900 bg-rose-100/70 px-1.5 py-0.5 rounded">Common Trap</span>
+           <span class="text-[9px] text-slate-400">Match to card</span>
+         </div>`;
+
+    return `
+      <div draggable="true" ondragstart="handleDragStartTrap(event, '${c.num}')"
+        onclick="selectChoiceForTapAssign('trap', '${c.num}', '${safeTrapTitle}')"
+        class="draggable-chip bg-white hover:bg-rose-50/60 border border-slate-200 rounded-xl p-2.5 text-xs flex flex-col gap-1 shadow-2xs hover:border-rose-300 transition ${selectedClass}">
+        ${hintLabelHtml}
+        <div class="flex items-start justify-between gap-1.5">
+          <div class="font-bold text-slate-900 text-xs leading-snug flex-1">
+            ${c.trapTitle}
+          </div>
+          <div class="shrink-0">
+            <button onclick="selectTrapForCurrentCard('${c.num}'); event.stopPropagation();" title="Select as matching trap"
+              class="min-h-[28px] px-2 py-0.5 rounded bg-rose-100 hover:bg-rose-600 text-rose-900 hover:text-white font-extrabold text-[10px] transition">
+              Drop Trap
+            </button>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-600 leading-snug line-clamp-2">${c.trapBody}</p>
+      </div>
+    `;
+  }).join('');
+}
+
+// ================= DRAG & DROP: STEPS TO DO IT CORRECTLY (UNIFIED SEQUENCE) =================
+function handleDragStartStep(e, stepId) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'step', id: stepId }));
+}
+
+function handleDropStepUnified(e) {
+  e.preventDefault();
+  handleDragLeave(e, 'dropzone-steps-unified');
+  try {
+    const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (payload && payload.type === 'step') {
+      appendStepToUnifiedZone(payload.id);
+    }
+  } catch (err) {}
+}
+
+function appendStepToUnifiedZone(stepId) {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  ensureCardDndState(card);
+
+  if (!dndStepState[card.num].includes(stepId)) {
+    dndStepState[card.num].push(stepId);
+  } else {
+    showToast('Step is already in the sequence.');
+  }
+
+  validateStepSequence(card);
+  renderStepDropZones(card);
+}
+
+function moveStepInUnifiedZone(fromIdx, toIdx) {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  ensureCardDndState(card);
+
+  const arr = dndStepState[card.num];
+  if (toIdx < 0 || toIdx >= arr.length) return;
+
+  const item = arr.splice(fromIdx, 1)[0];
+  arr.splice(toIdx, 0, item);
+
+  validateStepSequence(card);
+  renderStepDropZones(card);
+}
+
+function removeStepFromUnifiedZone(idx) {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  ensureCardDndState(card);
+
+  dndStepState[card.num].splice(idx, 1);
+  validateStepSequence(card);
+  renderStepDropZones(card);
+}
+
+function validateStepSequence(card) {
+  ensureCardDndState(card);
+  const userSteps = dndStepState[card.num] || [];
+  let allCorrect = true;
+
+  userSteps.forEach((stepId, idx) => {
+    if (stepId !== `${card.num}__${idx}`) {
+      allCorrect = false;
+      recordStepError(card.num, idx, stepId);
+    }
+  });
+
+  if (allCorrect && userSteps.length === card.structuredSteps.length) {
+    checkCardQuizCompletion(card.num);
+  }
+}
+
+function autoFillStepDnd() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  ensureCardDndState(card);
+
+  dndStepState[card.num] = card.structuredSteps.map((st, idx) => `${card.num}__${idx}`);
+  validateStepSequence(card);
+  renderStepDropZones(card);
+  showToast('Steps revealed in order.');
+}
+
+function resetStepDnd() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  ensureCardDndState(card);
+  dndStepState[card.num] = [];
+  renderStepDropZones(card);
+  showToast('Steps sequence cleared.');
+}
+
+function renderStepDropZones(card) {
+  const container = document.getElementById('dropzone-steps-unified');
+  if (!container) return;
+  ensureCardDndState(card);
+
+  const targetSteps = card.structuredSteps;
+  const userSteps = dndStepState[card.num] || [];
+  let correctInOrderCount = 0;
+
+  if (userSteps.length === 0) {
+    container.className = 'min-h-[110px] p-3 sm:p-4 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/40 hover:bg-amber-50 transition cursor-pointer flex flex-col items-center justify-center text-center gap-1';
+    container.innerHTML = `
+      <span class="text-xl">📥</span>
+      <p class="text-xs sm:text-sm font-extrabold text-amber-950">Drop Steps Here in Correct Order</p>
+      <p class="text-[11px] text-amber-800 max-w-sm leading-relaxed">
+        Drag steps from the side bank or tap <strong>+ Add Step</strong>. Recall how many steps this tactic has and order them from start to finish.
+      </p>
+    `;
+  } else {
+    container.className = 'min-h-[110px] p-2 sm:p-2.5 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/20 transition cursor-pointer flex flex-col justify-start gap-1.5';
+    
+    const itemsHtml = userSteps.map((stepId, idx) => {
+      const isTargetCardStep = stepId.startsWith(`${card.num}__`);
+      const targetStepForThisSlot = `${card.num}__${idx}`;
+      const isExactOrder = (stepId === targetStepForThisSlot);
+      if (isExactOrder) correctInOrderCount++;
+
+      const stepObj = allStepLines.find(s => s.id === stepId);
+      const stepTitle = stepObj ? stepObj.title : 'Selected Step';
+      const stepDetail = stepObj ? stepObj.detail : '';
+      const refsHtml = (stepObj && stepObj.refs && stepObj.refs.length > 0)
+        ? `<div class="flex flex-wrap items-center gap-1 mt-1 pt-1 border-t border-emerald-200">
+             <span class="text-[9px] font-extrabold uppercase text-emerald-800">Refs:</span>
+             ${stepObj.refs.map(r => createNumberedCardChip(r, 'text-[10px] px-1.5 py-0')).join('')}
+           </div>`
+        : '';
+
+      const borderClass = isExactOrder
+        ? 'border border-emerald-300 bg-emerald-50/90 text-emerald-950'
+        : (isTargetCardStep ? 'border border-amber-300 bg-amber-50/90 text-amber-950' : 'border border-rose-300 bg-rose-50/90 text-rose-950');
+
+      const badgeBg = isExactOrder ? 'bg-emerald-200 text-emerald-900' : (isTargetCardStep ? 'bg-amber-200 text-amber-900' : 'bg-rose-200 text-rose-900');
+      const icon = isExactOrder ? '✓' : (isTargetCardStep ? '⚠️ Misplaced' : '✗ Wrong Card');
+
+      return `
+        <div class="p-2 sm:p-2.5 rounded-xl ${borderClass} flex items-start justify-between gap-2 shadow-2xs transition">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 text-xs font-black mb-0.5">
+              <span class="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.2 rounded ${badgeBg} uppercase">Step #${idx + 1}</span>
+              <span class="text-[10px] opacity-80">${icon}</span>
+              <span class="truncate font-bold text-slate-900">${stepTitle}</span>
+            </div>
+            <p class="text-[11px] sm:text-xs leading-snug opacity-90">${stepDetail}</p>
+            ${refsHtml}
+          </div>
+          <div class="flex items-center gap-0.5 shrink-0" onclick="event.stopPropagation()">
+            <button onclick="moveStepInUnifiedZone(${idx}, ${idx - 1}); event.stopPropagation();" title="Move Up" ${idx === 0 ? 'disabled class="opacity-20 cursor-not-allowed text-xs p-1"' : 'class="p-1 hover:bg-slate-200 rounded text-xs font-bold"'}>▲</button>
+            <button onclick="moveStepInUnifiedZone(${idx}, ${idx + 1}); event.stopPropagation();" title="Move Down" ${idx === userSteps.length - 1 ? 'disabled class="opacity-20 cursor-not-allowed text-xs p-1"' : 'class="p-1 hover:bg-slate-200 rounded text-xs font-bold"'}>▼</button>
+            <button onclick="removeStepFromUnifiedZone(${idx}); event.stopPropagation();" title="Remove Step" class="p-1 hover:bg-rose-200 text-rose-700 rounded text-xs font-black">&times;</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const hintFooter = `<div class="text-center py-0.5 text-[10px] text-slate-400 italic">Drag more steps here or tap + Add Step in side bank</div>`;
+    container.innerHTML = itemsHtml + hintFooter;
+  }
+
+  const scoreEl = document.getElementById('dnd-step-score');
+  if (scoreEl) {
+    const isFullAndPerfect = (correctInOrderCount === targetSteps.length && userSteps.length === targetSteps.length);
+    if (isFullAndPerfect) {
+      scoreEl.innerText = `✓ ${targetSteps.length}/${targetSteps.length} Steps in Exact Order!`;
+      scoreEl.className = 'text-[9px] sm:text-[10px] font-extrabold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300';
+    } else if (userSteps.length > 0) {
+      scoreEl.innerText = `${userSteps.length} Placed • ${correctInOrderCount} in Order`;
+      scoreEl.className = 'text-[9px] sm:text-[10px] font-extrabold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200';
+    } else {
+      scoreEl.innerText = '0 Placed';
+      scoreEl.className = 'text-[9px] sm:text-[10px] font-extrabold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded';
+    }
+  }
+}
+
+// ================= DRAG & DROP: RUN BEFORE & RUN AFTER =================
+function handleDragStartCard(e, cardNum) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'card', num: cardNum }));
+}
+
+function handleDragStartTrap(e, sourceCardNum) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'trap', num: sourceCardNum }));
+}
+
+function handleDragOver(e, zoneId) {
+  e.preventDefault();
+  const el = document.getElementById(zoneId);
+  if (el) el.classList.add('drop-zone-active');
+}
+
+function handleDragLeave(e, zoneId) {
+  const el = document.getElementById(zoneId);
+  if (el) el.classList.remove('drop-zone-active');
+}
+
+function handleDropCard(e, targetSide) {
+  e.preventDefault();
+  handleDragLeave(e, targetSide === 'before' ? 'dropzone-before' : 'dropzone-after');
+  try {
+    const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (payload && payload.type === 'card') {
+      addCardToChainZone(payload.num, targetSide);
+    }
+  } catch (err) {}
+}
+
+function addCardToChainZone(droppedCardNum, targetSide) {
+  if (activePool.length === 0) return;
+  const currentCard = activePool[currentIndex];
+  ensureCardDndState(currentCard);
+
+  const list = dndChainState[currentCard.num][targetSide];
+  if (!list.includes(droppedCardNum)) {
+    list.push(droppedCardNum);
+  }
+
+  const expectedNums = (targetSide === 'before' ? currentCard.rbResolved : currentCard.raResolved).map(r => r.num);
+  if (!expectedNums.includes(droppedCardNum)) {
+    recordChainError(currentCard.num, droppedCardNum, targetSide);
+  } else {
+    checkCardQuizCompletion(currentCard.num);
+  }
+
+  renderChainDndZones(currentCard);
+}
+
+function renderChainDndZones(card) {
+  ensureCardDndState(card);
+  const state = dndChainState[card.num];
+  const expectedBeforeNums = card.rbResolved.map(r => r.num);
+  const expectedAfterNums = card.raResolved.map(r => r.num);
+
+  document.getElementById('before-target-count').innerText = `Target: ${expectedBeforeNums.length} card(s)`;
+  document.getElementById('after-target-count').innerText = `Target: ${expectedAfterNums.length} card(s)`;
+
+  const renderZoneChips = (numsList, expectedNums, side) => {
+    if (numsList.length === 0) {
+      return `<span class="text-[11px] text-slate-400 italic">Drag card chip from side bank or click +${side === 'before' ? 'B' : 'A'}</span>`;
+    }
+    return numsList.map(num => {
+      const ref = resolveCardRef(num);
+      const isCorrect = expectedNums.includes(num);
+      const badgeColor = isCorrect
+        ? 'bg-emerald-100 border-emerald-400 text-emerald-950'
+        : 'bg-rose-100 border-rose-400 text-rose-950';
+      const icon = isCorrect ? '✓' : '✗';
+      return `
+        <div class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md border ${badgeColor}">
+          <span>${icon}</span>
+          <button onclick="jumpToCardByNumOrName('${ref.num}')" class="hover:underline">
+            <span class="font-mono">${ref.num}</span> ${ref.name}
+          </button>
+          <button onclick="removeCardFromChainZone('${ref.num}', '${side}')" class="ml-1 text-xs opacity-70 hover:opacity-100 font-extrabold">&times;</button>
+        </div>
+      `;
+    }).join('');
+  };
+
+  document.getElementById('dropped-before-list').innerHTML = renderZoneChips(state.before, expectedBeforeNums, 'before');
+  document.getElementById('dropped-after-list').innerHTML = renderZoneChips(state.after, expectedAfterNums, 'after');
+
+  const correctBefore = state.before.filter(n => expectedBeforeNums.includes(n)).length;
+  const correctAfter = state.after.filter(n => expectedAfterNums.includes(n)).length;
+  const totalExpected = expectedBeforeNums.length + expectedAfterNums.length;
+  const totalCorrect = correctBefore + correctAfter;
+  const scoreEl = document.getElementById('dnd-chain-score');
+  scoreEl.innerText = `${totalCorrect} / ${totalExpected} Correct`;
+  scoreEl.className = totalCorrect === totalExpected && totalExpected > 0
+    ? 'text-[10px] font-extrabold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300'
+    : 'text-[10px] font-extrabold text-blue-800 bg-blue-50 px-2 py-0.5 rounded';
+}
+
+function removeCardFromChainZone(num, side) {
+  if (activePool.length === 0) return;
+  const currentCard = activePool[currentIndex];
+  ensureCardDndState(currentCard);
+
+  const list = dndChainState[currentCard.num][side];
+  const idx = list.indexOf(num);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+  }
+  renderChainDndZones(currentCard);
+}
+
+function autoFillChainDnd() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  dndChainState[card.num] = {
+    before: card.rbResolved.map(r => r.num),
+    after: card.raResolved.map(r => r.num)
+  };
+  renderChainDndZones(card);
+}
+
+function resetChainDnd() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  dndChainState[card.num] = { before: [], after: [] };
+  renderChainDndZones(card);
+}
+
+// ================= DRAG & DROP: COMMON TRAP SELECTOR =================
+function handleDropTrap(e) {
+  e.preventDefault();
+  handleDragLeave(e, 'dropzone-trap');
+  try {
+    const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (payload && payload.type === 'trap') {
+      selectTrapForCurrentCard(payload.num);
+    }
+  } catch (err) {}
+}
+
+function selectTrapForCurrentCard(sourceCardNum) {
+  if (activePool.length === 0) return;
+  const currentCard = activePool[currentIndex];
+  dndTrapState[currentCard.num] = sourceCardNum;
+
+  if (sourceCardNum !== currentCard.num) {
+    recordTrapError(currentCard.num, sourceCardNum);
+  } else {
+    checkCardQuizCompletion(currentCard.num);
+  }
+
+  renderTrapDropZone(currentCard);
+}
+
+function resetTrapDnd() {
+  if (activePool.length === 0) return;
+  const currentCard = activePool[currentIndex];
+  delete dndTrapState[currentCard.num];
+  renderTrapDropZone(currentCard);
+}
+
+function revealCorrectTrapDnd() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  dndTrapState[card.num] = card.num;
+  checkCardQuizCompletion(card.num);
+  renderTrapDropZone(card);
+  showToast('Common Trap revealed.');
+}
+
+function renderTrapDropZone(card) {
+  const displayEl = document.getElementById('dropped-trap-display');
+  const statusEl = document.getElementById('dnd-trap-status');
+  const selectedSourceNum = dndTrapState[card.num];
+
+  if (!selectedSourceNum) {
+    displayEl.innerHTML = `<span class="text-xs text-slate-500 italic">Drag &amp; drop matching Common Trap from side bank here (or click "Drop Trap" in side bank)</span>`;
+    statusEl.innerText = 'Awaiting Selection';
+    statusEl.className = 'text-[10px] font-extrabold text-rose-800 bg-rose-50 px-2 py-0.5 rounded';
+    return;
+  }
+
+  const chosenCard = rawDeck.find(c => c.num === selectedSourceNum);
+  const isCorrect = (selectedSourceNum === card.num);
+
+  if (isCorrect) {
+    statusEl.innerText = '✓ Correct Common Trap!';
+    statusEl.className = 'text-[10px] font-extrabold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300';
+    displayEl.innerHTML = `
+      <div class="p-2 rounded-lg bg-emerald-100/80 border border-emerald-400 text-emerald-950 text-xs text-left flex items-start justify-between gap-2">
+        <div>
+          <span class="font-extrabold">✓ Correct (${card.num} ${card.name}):</span>
+          <p class="mt-0.5 font-medium">${card.trap}</p>
+        </div>
+        <button onclick="resetTrapDnd()" class="text-xs font-extrabold px-1.5 py-0.5 rounded hover:bg-emerald-200">&times;</button>
+      </div>
+    `;
+  } else {
+    statusEl.innerText = `✗ Incorrect (Belongs to ${chosenCard ? chosenCard.num : ''})`;
+    statusEl.className = 'text-[10px] font-extrabold text-rose-900 bg-rose-100 px-2 py-0.5 rounded border border-rose-300';
+    displayEl.innerHTML = `
+      <div class="p-2 rounded-lg bg-rose-100/80 border border-rose-400 text-rose-950 text-xs text-left flex items-start justify-between gap-2">
+        <div>
+          <span class="font-extrabold">✗ Not quite! That trap belongs to ${chosenCard ? `${chosenCard.num} ${chosenCard.name}` : selectedSourceNum}:</span>
+          <p class="mt-0.5">${chosenCard ? chosenCard.trap : ''}</p>
+        </div>
+        <button onclick="resetTrapDnd()" class="text-xs font-extrabold px-1.5 py-0.5 rounded hover:bg-rose-200">&times;</button>
+      </div>
+    `;
+  }
+}
+
+// ================= QUICK MODE, NAVIGATION & SHORTCUTS =================
+function toggleQuickMode() {
+  isQuickMode = !isQuickMode;
+  frontQuickTrapPeek = false;
+  updateQuickModeButtonsUI();
+  renderCard();
+  showToast(isQuickMode ? '⚡ Quick Mode enabled on Front & Back' : 'Standard Deep Mode enabled');
+}
+
+function updateQuickModeButtonsUI() {
+  const hdrBtn = document.getElementById('quick-mode-btn');
+  const hdrDot = document.getElementById('quick-mode-dot');
+  const fState = document.getElementById('front-quick-state');
+  const bState = document.getElementById('back-quick-state');
+  const fBtn = document.getElementById('front-quick-btn');
+  const bBtn = document.getElementById('back-quick-btn');
+
+  if (isQuickMode) {
+    hdrBtn.className = 'text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-amber-500 bg-amber-100 text-amber-950 transition flex items-center gap-1.5 shadow-sm';
+    hdrDot.className = 'w-2 h-2 rounded-full bg-amber-600 animate-ping';
+    if (fState) { fState.innerText = 'ON'; fState.className = 'text-amber-800 font-black'; }
+    if (bState) { bState.innerText = 'ON'; bState.className = 'text-amber-800 font-black'; }
+    if (fBtn) fBtn.className = 'text-[11px] font-extrabold px-2.5 py-1 rounded-lg border border-amber-400 bg-amber-100 text-amber-950 transition flex items-center gap-1';
+    if (bBtn) bBtn.className = 'text-[11px] font-extrabold px-2.5 py-1 rounded-lg border border-amber-400 bg-amber-100 text-amber-950 transition flex items-center gap-1';
+  } else {
+    hdrBtn.className = 'text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1.5';
+    hdrDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+    if (fState) { fState.innerText = 'OFF'; fState.className = 'text-slate-500'; }
+    if (bState) { bState.innerText = 'OFF'; bState.className = 'text-slate-500'; }
+    if (fBtn) fBtn.className = 'text-[11px] font-extrabold px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1';
+    if (bBtn) bBtn.className = 'text-[11px] font-extrabold px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-amber-50 hover:border-amber-400 transition flex items-center gap-1';
+  }
+}
+
+function saveUserCardNote() {
+  if (activePool.length === 0) return;
+  const card = activePool[currentIndex];
+  const val = document.getElementById('card-user-note').value;
+  userNotes[card.num] = val;
+  saveUserNotes();
+  const ind = document.getElementById('note-save-indicator');
+  if (ind) {
+    ind.innerText = '✓ Saved to browser';
+    setTimeout(() => { ind.innerText = 'Auto-saved locally'; }, 1500);
   }
 }
 
@@ -1640,6 +3202,7 @@ function flipCard() {
 function nextCard() {
   if (activePool.length === 0) return;
   isFlipped = false;
+  frontQuickTrapPeek = false;
   currentIndex = (currentIndex + 1) % activePool.length;
   setTimeout(renderCard, 80);
 }
@@ -1647,6 +3210,7 @@ function nextCard() {
 function prevCard() {
   if (activePool.length === 0) return;
   isFlipped = false;
+  frontQuickTrapPeek = false;
   currentIndex = (currentIndex - 1 + activePool.length) % activePool.length;
   setTimeout(renderCard, 80);
 }
@@ -1654,31 +3218,37 @@ function prevCard() {
 function shuffleDeck() {
   if (activePool.length === 0) return;
   isFlipped = false;
-  activePool.sort(() => Math.random() - 0.5);
+  frontQuickTrapPeek = false;
+  // Fisher-Yates unbiased shuffle
+  for (let i = activePool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [activePool[i], activePool[j]] = [activePool[j], activePool[i]];
+  }
   currentIndex = 0;
   populateJumpSelect();
   setTimeout(renderCard, 80);
+  showToast('🔀 Deck shuffled (81 cards randomized)');
 }
 
-function jumpToCardByName(cardName) {
-  let targetIdx = rawDeck.findIndex(c => c.name.toLowerCase() === cardName.toLowerCase());
-  if (targetIdx === -1) {
-    targetIdx = rawDeck.findIndex(c => c.name.toLowerCase().includes(cardName.toLowerCase()));
+function jumpToCardByNumOrName(queryStr) {
+  const resolved = resolveCardRef(queryStr);
+  if (!resolved || resolved.num === '#--') {
+    showToast(`Card "${queryStr}" not found.`);
+    return;
   }
 
-  if (targetIdx !== -1) {
-    const targetCard = rawDeck[targetIdx];
+  const targetCard = rawDeck.find(c => c.num === resolved.num);
+  if (targetCard) {
     document.getElementById('category-filter').value = 'ALL';
     document.getElementById('srs-filter').value = 'ALL';
     document.getElementById('search-input').value = '';
     activePool = [...rawDeck];
     populateJumpSelect();
 
-    currentIndex = activePool.findIndex(c => c.name === targetCard.name);
+    currentIndex = activePool.findIndex(c => c.num === targetCard.num);
     isFlipped = false;
     renderCard();
-  } else {
-    alert(`Card "${cardName}" is not currently found in the registry.`);
+    showToast(`Jumped to ${targetCard.num} ${targetCard.name}`);
   }
 }
 
@@ -1718,11 +3288,14 @@ function applyFilters(resetIdx = true) {
       card.tagline.toLowerCase().includes(query) ||
       card.conc.toLowerCase().includes(query) ||
       card.diag.toLowerCase().includes(query) ||
+      card.trap.toLowerCase().includes(query) ||
       card.deepQ.toLowerCase().includes(query);
 
     const rec = getCardSRS(card.num);
     let matchesSRS = true;
-    if (srsMode === 'DUE') {
+    if (srsMode === 'ERRORS') {
+      matchesSRS = !!(quizErrors[card.num] && quizErrors[card.num].hasError);
+    } else if (srsMode === 'DUE') {
       matchesSRS = (rec.status !== 'new' && now >= rec.due);
     } else if (srsMode === 'LEARNING') {
       matchesSRS = (rec.status === 'learning');
@@ -1735,8 +3308,9 @@ function applyFilters(resetIdx = true) {
     return matchesCat && matchesQuery && matchesSRS;
   });
 
-  // Sort Due queue by most overdue first
-  if (srsMode === 'DUE') {
+  if (srsMode === 'ERRORS') {
+    activePool.sort((a, b) => (quizErrors[b.num]?.timestamp || 0) - (quizErrors[a.num]?.timestamp || 0));
+  } else if (srsMode === 'DUE') {
     activePool.sort((a, b) => getCardSRS(a.num).due - getCardSRS(b.num).due);
   }
 
@@ -1751,14 +3325,56 @@ function applyFilters(resetIdx = true) {
 }
 
 function renderEmptyState() {
+  const srsMode = document.getElementById('srs-filter').value;
   document.getElementById('deck-counter').innerText = '0 cards match filter';
   document.getElementById('card-srs-badge').innerText = 'Empty Queue';
   document.getElementById('card-srs-meta').innerText = '';
-  document.getElementById('front-name').innerText = 'No Cards Match Filter';
-  document.getElementById('front-tagline').innerText = 'Queue Complete or No Search Matches';
-  document.getElementById('front-concept').innerText = 'If you filtered by "Due for Review (SRS)", congratulations—you have cleared all currently due cards! Switch the SRS filter back to "All Cards (81)" or "Unseen / New" to continue studying.';
-  document.getElementById('front-diagnostic').innerText = '"Reset your filter above to keep practicing."';
+
+  if (srsMode === 'ERRORS') {
+    document.getElementById('front-name').innerText = 'No Missed Cards!';
+    document.getElementById('front-tagline').innerText = 'All Quiz Mistakes Cleared';
+    document.getElementById('front-concept').innerText = 'Outstanding work! You currently have zero missed quiz questions flagged for practice. Switch back to "All Cards" or "Due" to continue studying.';
+    document.getElementById('front-diagnostic').innerText = '"Great job mastering the tactics."';
+  } else {
+    document.getElementById('front-name').innerText = 'No Cards Match Filter';
+    document.getElementById('front-tagline').innerText = 'Queue Complete or No Search Matches';
+    document.getElementById('front-concept').innerText = 'If you filtered by "Due for Review (SRS)", congratulations—you have cleared all currently due cards! Switch the filter back to "All Cards (81)" or "Unseen / New" to continue studying.';
+    document.getElementById('front-diagnostic').innerText = '"Reset your filter above to keep practicing."';
+  }
   document.getElementById('front-deep-question').innerText = 'No active question.';
+}
+
+function setupTouchGestures() {
+  const stage = document.getElementById('flashcard-stage');
+  if (!stage) return;
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchEndX = 0;
+  let touchEndY = 0;
+
+  stage.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  stage.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    handleSwipeGesture();
+  }, { passive: true });
+
+  function handleSwipeGesture() {
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    if (Math.abs(diffX) > 48 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+      if (diffX < 0) {
+        nextCard();
+      } else {
+        prevCard();
+      }
+    }
+  }
 }
 
 function setupKeyboardShortcuts() {
@@ -1775,12 +3391,18 @@ function setupKeyboardShortcuts() {
     } else if (e.code === 'ArrowLeft' || e.key === 'k') {
       e.preventDefault();
       prevCard();
+    } else if (e.key === 's' || e.key === 'S') {
+      e.preventDefault();
+      shuffleDeck();
     } else if (e.key === 'q' || e.key === 'Q') {
       e.preventDefault();
       openQuestionsDirectly();
     } else if (e.key === 'b' || e.key === 'B') {
       e.preventDefault();
       toggleBlindMode();
+    } else if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      toggleQuickMode();
     } else if (['1', '2', '3', '4'].includes(e.key) && isFlipped) {
       e.preventDefault();
       rateCard(parseInt(e.key, 10));
